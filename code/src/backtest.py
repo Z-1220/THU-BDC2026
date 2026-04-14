@@ -23,8 +23,8 @@ def calculate_metrics(returns):
     max_drawdown = np.max(drawdown)
 
     win_rate = np.sum(returns > 0) / len(returns)
-    avg_win = np.mean(returns[returns > 0]) if np.any(returns > 0) else 0
-    avg_loss = -np.mean(returns[returns < 0]) if np.any(returns < 0) else 1e-6
+    avg_win = float(np.mean(returns[returns > 0])) if np.any(returns > 0) else 0.0
+    avg_loss = -float(np.mean(returns[returns < 0])) if np.any(returns < 0) else 1e-6
     profit_loss_ratio = avg_win / avg_loss
 
     return {

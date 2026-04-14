@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 获取沪深300指数成分股历史数据
 - 获取2026年2月20日沪深300的300个成分股
@@ -6,10 +6,10 @@
 - 使用baostock平台
 - 保存格式: 股票代码,日期,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌额,换手率,涨跌幅
 """
-
+from typing import Any, Optional, Tuple, cast
 import baostock as bs
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import time
 
@@ -47,7 +47,7 @@ def get_hs300_stocks():
     return df
 
 
-def get_stock_history(bs_code, start_date, end_date):
+def get_stock_history(bs_code: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
     """获取单只股票历史数据"""
     rs = bs.query_history_k_data_plus(bs_code,
         "date,code,open,high,low,close,preclose,volume,amount,turn,pctChg",
@@ -74,13 +74,12 @@ def get_stock_history(bs_code, start_date, end_date):
     # 计算振幅和涨跌额
     df['振幅'] = ((df['high'] - df['low']) / df['preclose'] * 100).round(2)
     df['涨跌额'] = (df['close'] - df['preclose']).round(2)
-    
-    # 转换日期格式 YYYY/M/D
-    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y/%-m/%-d')
-    
-    # 提取纯数字股票代码（统一为6位格式，不足前面补0）
-    df['code'] = df['code'].str.replace('sh.', '').str.replace('sz.', '')
-    df['code'] = df['code'].str.zfill(6)
+
+    # 转换日期格式（类型安全 + 跨平台无前导零）
+    df['date'] = cast(pd.Series, pd.to_datetime(df['date'])).dt.strftime('%Y/%m/%d').str.replace('/0', '/')
+
+    # 清洗股票代码（正常 Pandas 链式操作）
+    df['code'] = df['code'].str.replace('sh.', '').str.replace('sz.', '').str.zfill(6)
     
     # 重命名列
     df = df.rename(columns={
@@ -109,14 +108,22 @@ def get_existing_stocks(output_path):
         return set()
     try:
         df = pd.read_csv(output_path)
-        if '股票代码' in df.columns and len(df) > 0:
+        if not isinstance(df, pd.DataFrame):
+            return set()
+        if '股票代码' in df.columns and not df.empty:
             return set(df['股票代码'].unique())
-    except:
+    except Exception:  # type: ignore[reportUnknownException]  # noqa
         pass
     return set()
 
 
-def get_stock_date_range(output_path, stock_code, start_date=None, end_date=None):
+
+def get_stock_date_range(
+    output_path: str,
+    stock_code: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+) -> Tuple[Optional[str], Optional[str]]:
     """获取某只股票在现有数据中的日期范围（可限定目标时间窗）"""
     if not os.path.exists(output_path):
         return None, None
@@ -160,7 +167,8 @@ def format_api_date(dt):
     return dt.strftime('%Y-%m-%d')
 
 
-def filter_data_by_date_range(df, start_date, end_date):
+def filter_data_by_date_range(df: Optional[pd.DataFrame],
+                              start_date: str, end_date: str) -> Optional[pd.DataFrame]:
     """过滤DataFrame，仅保留目标时间窗内的数据"""
     if df is None or df.empty:
         return df
@@ -221,7 +229,7 @@ def main():
     os.makedirs(save_dir, exist_ok=True)
     
     start_date = "2024-01-01"
-    end_date = "2026-04-02"
+    end_date = "2026-04-14"
     
     output_path = os.path.join(save_dir, "stock_data.csv")
     
@@ -252,10 +260,11 @@ def main():
                 existing_df = pd.read_csv(output_path)
                 raw_len = len(existing_df)
                 existing_df = filter_data_by_date_range(existing_df, start_date, end_date)
-                filtered_len = len(existing_df)
-                print(f"  已加载现有数据: {len(existing_df)} 条记录")
-                if filtered_len != raw_len:
-                    print(f"  已按目标区间过滤旧数据: {raw_len} -> {filtered_len}")
+                if existing_df is not None:
+                    filtered_len = len(existing_df)
+                    print(f"  已加载现有数据: {len(existing_df)} 条记录")
+                    if filtered_len != raw_len:
+                        print(f"  已按目标区间过滤旧数据: {raw_len} -> {filtered_len}")
             except Exception as e:
                 print(f"  警告: 读取现有数据失败: {e}")
         
@@ -271,6 +280,7 @@ def main():
         total_new_records = 0
         
         for idx, row in hs300_df.iterrows():
+            idx: int
             bs_code = row.get('code', '')
             stock_name = row.get('code_name', '')
             pure_code = row.get('纯代码', '')
@@ -294,10 +304,10 @@ def main():
                 fetch_ranges = []
                 if need_early:
                     fetch_start = start_date
-                    fetch_end = (datetime.strptime(existing_min_date, '%Y-%m-%d') - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+                    fetch_end = (datetime.strptime(existing_min_date, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
                     fetch_ranges.append((fetch_start, fetch_end, "早期"))
                 if need_late:
-                    late_start = datetime.strptime(existing_max_date, '%Y-%m-%d') + pd.Timedelta(days=1)
+                    late_start = datetime.strptime(existing_max_date, '%Y-%m-%d') + timedelta(days=1)
                     fetch_start = max(pd.to_datetime(start_date), pd.to_datetime(late_start)).strftime('%Y-%m-%d')
                     fetch_end = end_date
                     fetch_ranges.append((fetch_start, fetch_end, "近期"))
@@ -331,12 +341,12 @@ def main():
                     
                     total_new_records += len(new_data)
                     success_count += 1
-                    print(f"  ✓ 获取成功，新增 {len(new_data)} 条记录")
+                    print(f"  [成功] 获取成功，新增 {len(new_data)} 条记录")
                 else:
-                    print(f"  ✗ 无新数据")
+                    print(f"  [无数据] 无新数据")
                     
             except Exception as e:
-                print(f"  ✗ 失败: {e}")
+                print(f"  [失败] 失败: {e}")
                 failed_stocks.append((bs_code, stock_name))
             
             # 每10只成功获取的股票暂停一下
@@ -376,7 +386,7 @@ def main():
         
         # 保存失败列表
         if failed_stocks:
-            failed_df = pd.DataFrame(failed_stocks, columns=['股票代码', '股票名称'])
+            failed_df = pd.DataFrame(failed_stocks, columns=pd.Index(['股票代码', '股票名称']))
             failed_path = os.path.join(save_dir, "failed_stocks.csv")
             failed_df.to_csv(failed_path, index=False, encoding='utf-8-sig')
             print(f"\n失败股票列表已保存至: {failed_path}")

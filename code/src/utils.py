@@ -1,14 +1,20 @@
+from typing import List, Optional, Dict, Any, Tuple, Callable, cast
 import pandas as pd
 import numpy as np
 import joblib
 import os
+
+from talib import MA_Type
 from tqdm import tqdm
+
 
 # 特征工程
 def _rolling_linear_regression(x, y):
     x = np.vstack([np.ones(len(x)), x]).T
     beta, res, _, _ = np.linalg.lstsq(x, y, rcond=None)
-    return beta[1], res[0] if len(res) > 0 else 0.0, np.sum((y - (x @ beta))**2)
+    return beta[1], res[0] if len(res) > 0 else 0.0, np.sum((y - (x @ beta)) ** 2)
+
+
 def engineer_features_158plus39(df):
     """
     计算39个技术指标特征和158个Alpha特征，并合并它们。
@@ -18,34 +24,35 @@ def engineer_features_158plus39(df):
 
     # 1. 计算158个Alpha特征
     df_158 = engineer_features(df_copy)
-    
+
     # 2. 计算39个技术指标特征
     df_39 = engineer_features_39(df_copy)
 
     # 3. 合并两个DataFrame
     # 首先，从df_39中选取我们需要的列，避免与df_158中的原始列（如'开盘'）重复
     feature_cols_39 = [
-        'sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal', 
-        'volume_change', 'obv', 'volume_ma_5', 'volume_ma_20', 'volume_ratio', 
-        'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60', 
-        'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',  
+        'sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal',
+        'volume_change', 'obv', 'volume_ma_5', 'volume_ma_20', 'volume_ratio',
+        'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60',
+        'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',
         'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread'
     ]
-    
+
     # 确保所有列都存在于df_39中
     feature_cols_39_exist = [col for col in feature_cols_39 if col in df_39.columns]
-    
+
     # 合并，df_158 已经包含了原始列和158个特征
     df_final = pd.concat([df_158, df_39[feature_cols_39_exist]], axis=1)
 
     # 4. 处理可能因为合并产生的重复列（如果两个函数生成了同名特征）
-    df_final = df_final.loc[:,~df_final.columns.duplicated()]
+    df_final = df_final.loc[:, ~df_final.columns.duplicated()]
 
     # 5. 统一处理inf和NaN
     df_final.replace([np.inf, -np.inf], np.nan, inplace=True)
     df_final.fillna(0, inplace=True)
-    
+
     return df_final
+
 
 def engineer_features_39(df):
     """
@@ -92,7 +99,8 @@ def engineer_features_39(df):
     df['kdj_j'] = 3 * df['kdj_k'] - 2 * df['kdj_d']
 
     # Bollinger Bands
-    df['boll_mid'], df['boll_upper'], df['boll_lower'] = talib.BBANDS(close, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+    df['boll_mid'], df['boll_upper'], df['boll_lower'] = talib.BBANDS(close, timeperiod=20, nbdevup=2, nbdevdn=2,
+                                                                      matype=MA_Type.SMA)
     # 标准差 = (上轨 - 中轨) / 2
     df['boll_std'] = (df['boll_upper'] - df['boll_mid']) / 2
 
@@ -131,6 +139,7 @@ def engineer_features_39(df):
     df.fillna(0, inplace=True)
 
     return df
+
 
 def engineer_features(df):
     """
@@ -202,11 +211,11 @@ def engineer_features(df):
         slope = talib.LINEARREG_SLOPE(close, timeperiod=w)
         features.append(slope / (close + 1e-12))
         feature_names.append(f'BETA{w}')
-        
+
         # R-squared can be calculated as CORREL^2
         time_period_series = pd.Series(range(w), index=close.index[:w])
         rolling_corr = close.rolling(w).corr(time_period_series)
-        rsquare = rolling_corr**2
+        rsquare = rolling_corr ** 2
         features.append(rsquare)
         feature_names.append(f'RSQR{w}')
 
@@ -263,7 +272,7 @@ def engineer_features(df):
     for w in windows:
         features.append(talib.CORREL(close, log_volume, timeperiod=w))
         feature_names.append(f'CORR{w}')
-    
+
     close_ret = close / close.shift(1)
     volume_ret = volume / (volume.shift(1) + 1e-12)
     log_volume_ret = np.log(volume_ret + 1)
@@ -349,24 +358,32 @@ def engineer_features(df):
     # Combine all features into a new DataFrame
     feature_df = pd.concat(features, axis=1)
     feature_df.columns = feature_names
-    
+
     # Merge with original df
     df = pd.concat([df, feature_df], axis=1)
-    
+
     # 填充缺失值
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.fillna(0, inplace=True)
     return df
-def process_single_stock(stock_row, data, features, sequence_length, date):
+
+
+def process_single_stock(
+        stock_row: pd.Series,
+        data: pd.DataFrame,
+        features: List[str],
+        sequence_length: int,
+        date: pd.Timestamp
+    ) -> tuple[Any, Any, Any] | tuple[None, None, None]:
     """处理单只股票的数据，返回序列、目标值和股票索引"""
     stock_code = stock_row['instrument']
     # stock_idx = stock_row['stock_idx']
-    
+
     # 获取该股票历史sequence_length天的数据（包括当天）
     stock_history = data[
-        (data['instrument'] == stock_code) & 
+        (data['instrument'] == stock_code) &
         (data['datetime'] <= date)
-    ].sort_values('datetime').tail(sequence_length)
+        ].sort_values('datetime').tail(sequence_length)
 
     if len(stock_history) == sequence_length:
         seq = stock_history[features].values
@@ -375,21 +392,27 @@ def process_single_stock(stock_row, data, features, sequence_length, date):
     else:
         return None, None, None
 
-def process_single_date(date, data, features, sequence_length):
+
+def process_single_date(
+        date: pd.Timestamp,
+        data: pd.DataFrame,
+        features: List[str],
+        sequence_length: int
+    ) -> Optional[Dict[str, Any]]:
     """处理单个日期的所有股票数据"""
     try:
         # 获取当天有target的股票（即有下一天数据的股票）
         day_data = data[data['datetime'] == date]
         day_data = day_data.dropna(subset=['label'])  # 确保有target
-        
+
         if len(day_data) < 10:  # 确保至少有10只股票
             return None
-            
+
         # 获取当天所有股票的特征序列
         day_sequences = []
         day_targets = []
         day_stock_indices = []
-        
+
         # 对于单个日期内的股票处理，仍使用串行方式避免过度并行化
         # 因为多进程的开销可能超过收益
         for _, stock_row in day_data.iterrows():
@@ -400,7 +423,7 @@ def process_single_date(date, data, features, sequence_length):
                 day_sequences.append(seq)
                 day_targets.append(target)
                 day_stock_indices.append(stock_idx)
-        
+
         if len(day_sequences) >= 10:  # 确保有足够的股票
             # 创建排序标签：涨跌幅越高，相关性得分越高
             day_targets = np.array(day_targets)
@@ -409,7 +432,7 @@ def process_single_date(date, data, features, sequence_length):
             relevance = np.zeros_like(day_targets, dtype=np.float32)
             for rank, idx in enumerate(sorted_indices):
                 relevance[idx] = len(day_targets) - rank  # 最高涨跌幅得分最高
-            
+
             return {
                 'sequences': np.array(day_sequences),
                 'targets': day_targets,
@@ -419,12 +442,24 @@ def process_single_date(date, data, features, sequence_length):
             }
         else:
             return None
-            
+
     except Exception as e:
         print(f"处理日期 {date} 时出错: {e}")
         return None
 
-def create_ranking_dataset_multiprocess(data, features, sequence_length, ranking_data_path=None, max_workers=None):
+
+def create_ranking_dataset_multiprocess(
+    data: pd.DataFrame,
+    features: List[str],
+    sequence_length: int,
+    ranking_data_path: Optional[str] = None,
+    max_workers: Optional[int] = None
+) -> Tuple[
+    List[np.ndarray],      # sequences
+    List[np.ndarray],      # targets
+    List[np.ndarray],      # relevance_scores
+    List[List[Any]]        # stock_indices
+]:
     """
     输入：股票历史数据 DataFrame，特征列名列表，序列长度，排名数据保存路径，最大工作进程数
     输出：排序数据集，格式为：(sequences, targets, relevance_scores, stock_indices)
@@ -433,32 +468,32 @@ def create_ranking_dataset_multiprocess(data, features, sequence_length, ranking
     - relevance_scores: List of np.array, 每个元素形状为 (num_stocks,)
     - stock_indices: List of List, 每个元素为对应股票的索引列表
     """
-    """多进程版本的排序数据集创建函数"""
+    # 如果已存在缓存文件，直接加载返回
     if ranking_data_path is not None:
-        # 如果指定了ranking_data_path，尝试加载已有的数据集
         if os.path.exists(ranking_data_path):
             print(f"加载已有的排序数据集: {ranking_data_path}")
-            return joblib.load(ranking_data_path)
-    """
-    创建排序数据集，按日期组织数据，每个样本包含同一天所有股票的特征和涨跌幅排序
-    使用多线程加速处理
-    """
-    sequences = []
-    targets = []
-    relevance_scores = []
-    stock_indices = []
-    
-    print("正在创建排序数据集（多线程版本）...")
-    
-    # 获取所有日期，确保有足够的历史数据
-    all_dates = sorted(data['datetime'].unique())
-    min_date_for_sequences = all_dates[sequence_length-1]  # 确保有足够历史数据
-    
+            # joblib.load 返回 Any，但运行时与声明类型一致，故忽略类型检查
+            return joblib.load(ranking_data_path)  # type: ignore[no-any-return]
+
+    sequences: List[np.ndarray] = []
+    targets: List[np.ndarray] = []
+    relevance_scores: List[np.ndarray] = []
+    stock_indices: List[List[Any]] = []
+
+    print("正在创建排序数据集（多进程版本）...")
+
+    # 获取所有日期，并确保类型清晰
+    date_series = cast(pd.Series, pd.to_datetime(data['datetime']))
+    all_dates: List[pd.Timestamp] = sorted(date_series.dropna().unique().tolist())
+    min_date_for_sequences = all_dates[sequence_length - 1]
+
     # 只使用有足够历史数据的日期
-    valid_dates = [date for date in all_dates if date >= min_date_for_sequences]
-    
+    valid_dates: List[pd.Timestamp] = [
+        date for date in all_dates if date >= min_date_for_sequences
+    ]
+
     print(f"总日期数: {len(all_dates)}, 有效日期数: {len(valid_dates)}")
-    
+
     # 设置最大工作进程数
     import multiprocessing as mp
     from concurrent.futures import ProcessPoolExecutor
@@ -466,28 +501,29 @@ def create_ranking_dataset_multiprocess(data, features, sequence_length, ranking
     from tqdm import tqdm
     if max_workers is None:
         max_workers = min(mp.cpu_count(), 10)
-    
+
     print(f"使用 {max_workers} 个进程处理数据")
-    
-    # 分批处理日期以避免内存问题
+
     processed_count = 0
-        
-    # 使用进程池并行处理日期批次
     try:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            # 创建处理函数的偏函数
-            process_func = partial(process_single_date,
-                                    data=data,
-                                    features=features,
-                                    sequence_length=sequence_length)
-            
-            # 并行处理批次中的所有日期
+            process_func = cast(
+                Callable[[pd.Timestamp], Optional[Dict[str, Any]]],
+                partial(
+                    process_single_date,
+                    data=data,
+                    features=features,
+                    sequence_length=sequence_length
+                )
+            )
+
+            # 提交所有任务
             futures = [executor.submit(process_func, date) for date in valid_dates]
-            
+
             # 收集结果
             for future in tqdm(futures, desc="Processing dates", total=len(valid_dates)):
                 try:
-                    result = future.result(timeout=60)  # 设置超时
+                    result = future.result(timeout=60)
                     if result is not None:
                         sequences.append(result['sequences'])
                         targets.append(result['targets'])
@@ -497,10 +533,10 @@ def create_ranking_dataset_multiprocess(data, features, sequence_length, ranking
                 except Exception as e:
                     print(f"处理某个日期时出错: {e}")
                     continue
-                    
+
     except Exception as e:
         print(f"进程池处理出错，回退到串行处理: {e}")
-        # 如果多进程出错，回退到串行处理
+        # 回退到串行处理
         for date in tqdm(valid_dates, desc="串行处理"):
             result = process_single_date(date, data, features, sequence_length)
             if result is not None:
@@ -509,23 +545,22 @@ def create_ranking_dataset_multiprocess(data, features, sequence_length, ranking
                 relevance_scores.append(result['relevance'])
                 stock_indices.append(result['stock_indices'])
                 processed_count += 1
-    
+
     print(f"成功创建 {len(sequences)} 个训练样本")
     if len(sequences) > 0:
-        print(f"每个样本平均包含 {np.mean([len(seq) for seq in sequences]):.1f} 只股票")
-    
-    # 将四个数据保存下来，下次直接读取
+        avg_stocks = np.mean([len(seq) for seq in sequences])
+        print(f"每个样本平均包含 {avg_stocks:.1f} 只股票")
+
+    # 保存缓存
     if ranking_data_path:
         joblib.dump((sequences, targets, relevance_scores, stock_indices), ranking_data_path)
         print(f"数据集已保存到: {ranking_data_path}")
-    
+
     return sequences, targets, relevance_scores, stock_indices
 
-def create_dataset(data, features, sequence_length, ranking_data_path=None):
-    """保持原有接口，但内部调用新的排序数据集创建函数"""
-    return create_ranking_dataset_multiprocess(data, features, sequence_length, ranking_data_path)
 
-def create_ranking_dataset_vectorized(data, features, sequence_length, ranking_data_path=None, min_window_end_date=None):
+def create_ranking_dataset_vectorized(data, features, sequence_length, ranking_data_path=None,
+                                      min_window_end_date=None):
     """
     向量化加速版本：预计算每只股票的所有滑动窗口，再按日期聚合。
     保持与原函数完全相同的输出格式。
@@ -542,10 +577,10 @@ def create_ranking_dataset_vectorized(data, features, sequence_length, ranking_d
 
     # 1. 确保数据按股票和时间排序
     data = data.sort_values(['instrument', 'datetime']).reset_index(drop=True)
-    
+
     # 2. 确保每只股票都有 'label'（次日涨跌幅），否则无法作为 target
     data = data.dropna(subset=['label'])
-    
+
     # 3. 为每只股票生成所有滑动窗口
     # 仅保留满足以下条件的 end_date：
     # - 历史窗口长度满足 sequence_length
@@ -555,15 +590,15 @@ def create_ranking_dataset_vectorized(data, features, sequence_length, ranking_d
 
     print("Step 1: 为每只股票生成滑动窗口...")
     grouped = data.groupby('instrument')
-    
+
     for stock_code, group in tqdm(grouped, desc="Processing stocks"):
         if len(group) < sequence_length:
             continue
-        
+
         # 提取特征和 label
         feature_values = group[features].values.astype(np.float32)  # (T, F)
-        labels = group['label'].values.astype(np.float32)           # (T,)
-        dates = group['datetime'].values                            # (T,)
+        labels = group['label'].values.astype(np.float32)  # (T,)
+        dates = group['datetime'].values  # (T,)
         dates_day = group['datetime'].values.astype('datetime64[D]')
 
         # 生成滑动窗口：从第 sequence_length-1 行开始（0-indexed）
@@ -582,14 +617,14 @@ def create_ranking_dataset_vectorized(data, features, sequence_length, ranking_d
             if not np.all(future_diffs == 1):
                 continue
 
-            seq = feature_values[i : i + sequence_length]   # (L, F)
-            target = labels[end_idx]                        # label 对应窗口最后一天的次日涨跌幅
-            end_date = dates[end_idx]                       # 窗口结束日期（即预测日）
+            seq = feature_values[i: i + sequence_length]  # (L, F)
+            target = labels[end_idx]  # label 对应窗口最后一天的次日涨跌幅
+            end_date = dates[end_idx]  # 窗口结束日期（即预测日）
             all_windows.append((end_date, stock_code, seq, target))
 
     # 4. 转为 DataFrame 便于按日期聚合
     print("Step 2: 按日期聚合窗口...")
-    window_df = pd.DataFrame(all_windows, columns=['date', 'stock_code', 'seq', 'target'])
+    window_df = pd.DataFrame(all_windows, columns=pd.Index(['date', 'stock_code', 'seq', 'target']))
 
     # 5. 按 date 分组，构建每日样本
     sequences = []
@@ -602,18 +637,19 @@ def create_ranking_dataset_vectorized(data, features, sequence_length, ranking_d
 
     if min_window_end_date is not None:
         min_window_end_date = pd.to_datetime(min_window_end_date)
-    
+        min_window_end_date: pd.DatetimeIndex
+
     for date, group in tqdm(grouped_by_date, desc="Aggregating by date"):
-        if min_window_end_date is not None and pd.to_datetime(date) < min_window_end_date:
+        if min_window_end_date is not None and pd.to_datetime(str(date)) < min_window_end_date:
             continue
 
         if len(group) < 10:
             continue
-        
+
         # 提取数据
-        day_seqs = np.stack(group['seq'].values)          # (N, L, F)
-        day_targets = group['target'].values              # (N,)
-        day_stocks = group['stock_code'].tolist()         # [str]
+        day_seqs = np.stack(group['seq'].values)  # (N, L, F)
+        day_targets = group['target'].values  # (N,)
+        day_stocks = group['stock_code'].tolist()  # [str]
 
         # 计算 relevance（与原逻辑一致）
         sorted_indices = np.argsort(day_targets)[::-1]

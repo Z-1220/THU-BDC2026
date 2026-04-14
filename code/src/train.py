@@ -120,31 +120,32 @@ class WeightedRankingLoss(nn.Module):
         
         return ce_loss
 
+
     def pairwise_loss(self, y_pred, y_true, weights):
         """加权的Pairwise损失"""
         batch_size, num_items = y_pred.size()
-        
+
         pred_diff = y_pred.unsqueeze(2) - y_pred.unsqueeze(1)
         true_diff = y_true.unsqueeze(2) - y_true.unsqueeze(1)
-        
+
         # 只考虑真实标签不同的项目对
         mask = (true_diff != 0).float()
-        
+
         # 创建权重矩阵
         # 如果一对(i, j)中，i或j是关键样本，则权重更高
         weight_matrix = weights.unsqueeze(2) + weights.unsqueeze(1)
         # weight_matrix = torch.where(weight_matrix > 2.0, self.weight_factor, 1.0)
-        
+
         pairwise_loss = torch.sigmoid(-pred_diff * torch.sign(true_diff))
-        
+
         # 应用mask和权重
         weighted_loss = pairwise_loss * mask * weight_matrix
-        
+
         num_pairs = mask.sum(dim=[1, 2]).clamp(min=1)
         loss = (weighted_loss.sum(dim=[1, 2]) / num_pairs).mean()
-        
+
         return loss
-        
+
     def forward(self, y_pred, y_true):
         """
         y_pred: [batch, num_items]
@@ -219,17 +220,15 @@ def calculate_ranking_metrics(y_pred, y_true, masks, k=5):
         ratio_random_list.append(ratio_random)
         final_score_list.append(final_score)
         
-    metrics = {
-        'pred_return_sum': np.mean(pred_return_sum_list) if pred_return_sum_list else 0.0,
-        'max_return_sum': np.mean(max_return_sum_list) if max_return_sum_list else 0.0,
-        'random_return_sum': np.mean(random_return_sum_list) if random_return_sum_list else 0.0,
-    }
+    metrics = {'pred_return_sum': np.mean(pred_return_sum_list) if pred_return_sum_list else 0.0,
+               'max_return_sum': np.mean(max_return_sum_list) if max_return_sum_list else 0.0,
+               'random_return_sum': np.mean(random_return_sum_list) if random_return_sum_list else 0.0,
+               'ratio_pred': np.mean(ratio_pred_list) if ratio_pred_list else 0.0,
+               'ratio_random': np.mean(ratio_random_list) if ratio_random_list else 0.0,
+               'final_score': np.mean(final_score_list) if final_score_list else 0.0}
     
     # 比值用逐样本均值，降低极端日影响
-    metrics['ratio_pred'] = np.mean(ratio_pred_list) if ratio_pred_list else 0.0
-    metrics['ratio_random'] = np.mean(ratio_random_list) if ratio_random_list else 0.0
-    metrics['final_score'] = np.mean(final_score_list) if final_score_list else 0.0
-    
+
     return metrics
 
 class RankingDataset(torch.utils.data.Dataset):
@@ -695,6 +694,8 @@ def main():
             writer.close()
 
         return best_score
+    return None
+
 
 if __name__ == "__main__":
     # 多进程保护
