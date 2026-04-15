@@ -21,7 +21,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    privileged: true
     mem_limit: 16g
     memswap_limit: 16g
     cpus: 10.0

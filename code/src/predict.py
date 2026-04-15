@@ -62,7 +62,7 @@ def preprocess_predict_data(df, stockid2idx):
 		raise ValueError('输入数据为空，无法预测')
 
 	num_processes = min(10, mp.cpu_count())
-	print('cpus!!!!!!!!!!!!!!!!!!',mp.cpu_count())
+
 	with mp.Pool(processes=num_processes) as pool:
 		processed_list = list(tqdm(pool.imap(feature_engineer, groups), total=len(groups), desc='预测集特征工程'))
 
@@ -135,7 +135,9 @@ def main():
 		device = torch.device('cpu')
 
 	model = StockTransformer(input_dim=len(features), config=config, num_stocks=len(stock_ids))
-	model.load_state_dict(torch.load(model_path, map_location=device))
+	# SECURITY: Use weights_only=True to prevent arbitrary code execution
+	# via pickle when loading model checkpoints from untrusted sources.
+	model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
 	model.to(device)
 	model.eval()
 

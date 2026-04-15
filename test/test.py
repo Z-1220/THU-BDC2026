@@ -3,6 +3,7 @@ import subprocess
 import docker
 import time
 import os
+import sys
 DATA_ROOT_PATH = "./"
 
 
@@ -26,47 +27,36 @@ def get_docker_client():
 
 
 def delete_file():
-    # 使用del删除文件
-    command = f"rm -rf {DATA_ROOT_PATH}/test/output/*"
-    subprocess.run(command, shell=True, check=True)
-    command = f"rm -rf {DATA_ROOT_PATH}/temp/*"
-    subprocess.run(command, shell=True, check=True)
-    command = f"rm -rf {DATA_ROOT_PATH}/temp/tmp.csv"
-    subprocess.run(command, shell=True, check=True)
+    # SECURITY: Use list form (shell=False) to prevent shell injection.
+    subprocess.run(["rm", "-rf", f"{DATA_ROOT_PATH}/test/output/"], check=True)
+    subprocess.run(["mkdir", "-p", f"{DATA_ROOT_PATH}/test/output"], check=True)
+    subprocess.run(["rm", "-rf", f"{DATA_ROOT_PATH}/temp/"], check=True)
+    subprocess.run(["mkdir", "-p", f"{DATA_ROOT_PATH}/temp"], check=True)
 
 
 # 运行docker rm命令
 def run_docker_rm():
-    # command = "docker stop $(docker ps -aq)"
-    # subprocess.run(command, shell=True, check=True)
-    # print("Removed project-app-1 container.")
-    command = "docker rm test-app-1"
-    # command = "docker rm $(docker ps -aq) -f"
-    subprocess.run(command, shell=True, check=True)
-    print("Removed project-app-1 container.")
+    subprocess.run(["docker", "rm", "test-app-1"], check=True)
+    print("Removed test-app-1 container.")
 
 
 # 运行docker rmi命令
 def run_docker_rmi():
-    command = "docker rmi bdc2026"
-    # command = "docker rmi $(docker images -aq) -f"
-    subprocess.run(command, shell=True, check=True)
+    subprocess.run(["docker", "rmi", "bdc2026"], check=True)
     print("Removed bdc2026 image.")
 
 
 # 运行docker load命令
 def run_docker_load(tar_file):
-    command = f"docker load -i {tar_file}"
-    print(command)
-    subprocess.run(command, shell=True, check=True)
+    command = ["docker", "load", "-i", tar_file]
+    print(" ".join(command))
+    subprocess.run(command, check=True)
     print(f"Loaded image from {tar_file}.")
 
 
 # 运行docker-compose up命令
 def run_docker_compose_up(tar_name):
-    # command = "docker compose up"
-    command = "docker compose -p test up -d"
-    subprocess.run(command, shell=True, check=True)
+    subprocess.run(["docker", "compose", "-p", "test", "up", "-d"], check=True)
     print("Started docker compose.")
 
     sumtm = 0
@@ -82,20 +72,22 @@ def run_docker_compose_up(tar_name):
         if container.status == "exited":
             print("容器已退出，停止运行")
             break
-    command = "docker compose down"
-    subprocess.run(command, shell=True, check=True)
+    subprocess.run(["docker", "compose", "down"], check=True)
     print("DOWN docker compose.")
 
-    command = f"cp {DATA_ROOT_PATH}/test/output/result.csv ./test/results_output/{tar_name}.csv"
-    subprocess.run(command, shell=True, check=True)
+    import shutil
+    src = f"{DATA_ROOT_PATH}/test/output/result.csv"
+    dst = f"./test/results_output/{tar_name}.csv"
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copy2(src, dst)
     print("Started copy")
 
 
 # 运行score.sh命令
 def run_score(file_name):
     team_name = file_name.split("/")[-1].split(".")[0]  # 获取文件名作为team_name
-    command = f"python test/score_docker.py {team_name}"
-    subprocess.run(command, shell=True, check=True)
+    command = [sys.executable, "test/score_docker.py", team_name]
+    subprocess.run(command, check=True)
     print("Started score_docker.py")
 
     # 读取1.csv的第一行数据
