@@ -1,9 +1,11 @@
 import pandas as pd
+import shutil
 import subprocess
-import docker
+import sys
 import time
 import os
-import sys
+
+import docker
 DATA_ROOT_PATH = "./"
 
 
@@ -75,7 +77,6 @@ def run_docker_compose_up(tar_name):
     subprocess.run(["docker", "compose", "down"], check=True)
     print("DOWN docker compose.")
 
-    import shutil
     src = f"{DATA_ROOT_PATH}/test/output/result.csv"
     dst = f"./test/results_output/{tar_name}.csv"
     os.makedirs(os.path.dirname(dst), exist_ok=True)
