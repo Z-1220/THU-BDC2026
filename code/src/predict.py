@@ -40,7 +40,15 @@ feature_cloums_map = {
 		'sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal', 'volume_change', 'obv',
 		'volume_ma_5', 'volume_ma_20', 'volume_ratio', 'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std',
 		'atr_14', 'ema_60', 'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',
-		'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread'
+		'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread',
+		    'mom_accel_5_10', 'up_down_ratio_5d', 'win_rate_5d',
+    'downside_vol_10d', 'max_drawdown_10d',
+    'sector_mom_5d', 'sector_mom_10d',
+    'vs_sector_mom_5d', 'vs_sector_mom_10d',
+    'market_mom_5d', 'market_mom_10d',
+    'market_breadth_1d', 'market_vol_5d',
+    'excess_mom_5d', 'excess_mom_10d',
+    'sector_rank_5d', 'sector_breadth_5d'
 	]
 }
 
@@ -71,6 +79,30 @@ def preprocess_predict_data(df, stockid2idx):
 	processed = processed.dropna(subset=['instrument']).copy()
 	processed['instrument'] = processed['instrument'].astype(np.int64)
 	processed['日期'] = pd.to_datetime(processed['日期'])
+	
+	# 板块/市场级跨股票特征
+	sector_file = os.path.join(config['data_path'], 'hs300_stock_list_annotated.csv')
+	if os.path.exists(sector_file):
+		sector_df = pd.read_csv(sector_file, dtype={'code_clean': str})
+		sector_df['code_clean'] = sector_df['code_clean'].astype(str).str.zfill(6)
+		sector_map = sector_df.set_index('code_clean')['行业'].to_dict()
+		processed['_行业'] = processed['股票代码'].map(sector_map).fillna('未知')
+		for w_name, w_col in [('5d', 'return_5'), ('10d', 'return_10')]:
+			sector_avg = processed.groupby(['日期', '_行业'])[w_col].transform('mean')
+			processed[f'sector_mom_{w_name}'] = sector_avg
+			processed[f'vs_sector_mom_{w_name}'] = processed[w_col] - sector_avg
+		processed['market_mom_5d'] = processed.groupby('日期')['return_5'].transform('mean')
+		processed['market_mom_10d'] = processed.groupby('日期')['return_10'].transform('mean')
+		processed['market_breadth_1d'] = processed.groupby('日期')['return_1'].transform(lambda x: (x > 0).mean())
+		processed['market_vol_5d'] = processed.groupby('日期')['return_1'].transform('std')
+		processed['excess_mom_5d'] = processed['sector_mom_5d'] - processed['market_mom_5d']
+		processed['excess_mom_10d'] = processed['sector_mom_10d'] - processed['market_mom_10d']
+		n_sec = processed.groupby('日期')['_行业'].transform('nunique')
+		processed['sector_rank_5d'] = processed.groupby('日期')['sector_mom_5d'].rank(ascending=False)
+		processed['sector_rank_5d'] = 1.0 - processed['sector_rank_5d'] / (n_sec + 1)
+		processed['sector_breadth_5d'] = processed.groupby(['日期', '_行业'])['return_5'].transform(lambda x: (x > 0).mean())
+		processed.drop(columns=['_行业'], inplace=True)
+		processed.replace([np.inf, -np.inf], np.nan, inplace=True)
 
 	return processed, feature_columns
 

@@ -14,6 +14,27 @@ def _rolling_linear_regression(x, y):
     beta, res, _, _ = np.linalg.lstsq(x, y, rcond=None)
     return beta[1], res[0] if len(res) > 0 else 0.0, np.sum((y - (x @ beta)) ** 2)
 
+def engineer_advanced_stock_features(df):
+    """
+    高级个股特征（5个），依赖 return_1 / return_5 / return_10。
+    """
+    daily_ret = df['return_1']
+    df['mom_accel_5_10'] = df['return_5'] - df['return_10']
+
+    up_ret = daily_ret.clip(lower=0).rolling(5).sum()
+    down_ret = daily_ret.clip(upper=0).rolling(5).sum()
+    df['up_down_ratio_5d'] = up_ret / (down_ret.abs() + 1e-8)
+    df['win_rate_5d'] = (daily_ret > 0).rolling(5).mean()
+
+    df['downside_vol_10d'] = daily_ret.rolling(10).apply(
+        lambda x: np.std(x[x < 0]) if np.sum(x < 0) >= 2 else 0.0, raw=True
+    )
+
+    cum = (1 + daily_ret).cumprod()
+    peak = cum.cummax()
+    df['max_drawdown_10d'] = ((peak - cum) / peak).rolling(10).max()
+
+    return df
 
 def engineer_features_158plus39(df):
     """
@@ -46,6 +67,8 @@ def engineer_features_158plus39(df):
 
     # 4. 处理可能因为合并产生的重复列（如果两个函数生成了同名特征）
     df_final = df_final.loc[:, ~df_final.columns.duplicated()]
+
+    df_final = engineer_advanced_stock_features(df_final)
 
     # 5. 统一处理inf和NaN
     df_final.replace([np.inf, -np.inf], np.nan, inplace=True)

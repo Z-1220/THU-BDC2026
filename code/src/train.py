@@ -29,7 +29,15 @@ def set_seed(seed=42):
 feature_cloums_map = {
     '39': ['instrument','开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅','sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal', 'volume_change', 'obv','volume_ma_5', 'volume_ma_20', 'volume_ratio', 'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60', 'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',  'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread'],
 
-    '158+39': ['instrument','开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅','KMID', 'KLEN', 'KMID2', 'KUP', 'KUP2', 'KLOW', 'KLOW2', 'KSFT', 'KSFT2', 'OPEN0', 'HIGH0', 'LOW0', 'VWAP0', 'ROC5', 'ROC10', 'ROC20', 'ROC30', 'ROC60', 'MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'STD5', 'STD10', 'STD20', 'STD30', 'STD60', 'BETA5', 'BETA10', 'BETA20', 'BETA30', 'BETA60', 'RSQR5', 'RSQR10', 'RSQR20', 'RSQR30', 'RSQR60', 'RESI5', 'RESI10', 'RESI20', 'RESI30', 'RESI60', 'MAX5', 'MAX10', 'MAX20', 'MAX30', 'MAX60', 'MIN5', 'MIN10', 'MIN20', 'MIN30', 'MIN60', 'QTLU5', 'QTLU10', 'QTLU20', 'QTLU30', 'QTLU60', 'QTLD5', 'QTLD10', 'QTLD20', 'QTLD30', 'QTLD60', 'RANK5', 'RANK10', 'RANK20', 'RANK30', 'RANK60', 'RSV5', 'RSV10', 'RSV20', 'RSV30', 'RSV60', 'IMAX5', 'IMAX10', 'IMAX20', 'IMAX30', 'IMAX60', 'IMIN5', 'IMIN10', 'IMIN20', 'IMIN30', 'IMIN60', 'IMXD5', 'IMXD10', 'IMXD20', 'IMXD30', 'IMXD60', 'CORR5', 'CORR10', 'CORR20', 'CORR30', 'CORR60', 'CORD5', 'CORD10', 'CORD20', 'CORD30', 'CORD60', 'CNTP5', 'CNTP10', 'CNTP20', 'CNTP30', 'CNTP60', 'CNTN5', 'CNTN10', 'CNTN20', 'CNTN30', 'CNTN60', 'CNTD5', 'CNTD10', 'CNTD20', 'CNTD30', 'CNTD60', 'SUMP5', 'SUMP10', 'SUMP20', 'SUMP30', 'SUMP60', 'SUMN5', 'SUMN10', 'SUMN20', 'SUMN30', 'SUMN60', 'SUMD5', 'SUMD10', 'SUMD20', 'SUMD30', 'SUMD60', 'VMA5', 'VMA10', 'VMA20', 'VMA30', 'VMA60', 'VSTD5', 'VSTD10', 'VSTD20', 'VSTD30', 'VSTD60', 'WVMA5', 'WVMA10', 'WVMA20', 'WVMA30', 'WVMA60', 'VSUMP5', 'VSUMP10', 'VSUMP20', 'VSUMP30', 'VSUMP60', 'VSUMN5', 'VSUMN10', 'VSUMN20', 'VSUMN30', 'VSUMN60', 'VSUMD5', 'VSUMD10', 'VSUMD20', 'VSUMD30', 'VSUMD60','sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal', 'volume_change', 'obv', 'volume_ma_5', 'volume_ma_20', 'volume_ratio', 'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60', 'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',  'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread']
+    '158+39': ['instrument','开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅','KMID', 'KLEN', 'KMID2', 'KUP', 'KUP2', 'KLOW', 'KLOW2', 'KSFT', 'KSFT2', 'OPEN0', 'HIGH0', 'LOW0', 'VWAP0', 'ROC5', 'ROC10', 'ROC20', 'ROC30', 'ROC60', 'MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'STD5', 'STD10', 'STD20', 'STD30', 'STD60', 'BETA5', 'BETA10', 'BETA20', 'BETA30', 'BETA60', 'RSQR5', 'RSQR10', 'RSQR20', 'RSQR30', 'RSQR60', 'RESI5', 'RESI10', 'RESI20', 'RESI30', 'RESI60', 'MAX5', 'MAX10', 'MAX20', 'MAX30', 'MAX60', 'MIN5', 'MIN10', 'MIN20', 'MIN30', 'MIN60', 'QTLU5', 'QTLU10', 'QTLU20', 'QTLU30', 'QTLU60', 'QTLD5', 'QTLD10', 'QTLD20', 'QTLD30', 'QTLD60', 'RANK5', 'RANK10', 'RANK20', 'RANK30', 'RANK60', 'RSV5', 'RSV10', 'RSV20', 'RSV30', 'RSV60', 'IMAX5', 'IMAX10', 'IMAX20', 'IMAX30', 'IMAX60', 'IMIN5', 'IMIN10', 'IMIN20', 'IMIN30', 'IMIN60', 'IMXD5', 'IMXD10', 'IMXD20', 'IMXD30', 'IMXD60', 'CORR5', 'CORR10', 'CORR20', 'CORR30', 'CORR60', 'CORD5', 'CORD10', 'CORD20', 'CORD30', 'CORD60', 'CNTP5', 'CNTP10', 'CNTP20', 'CNTP30', 'CNTP60', 'CNTN5', 'CNTN10', 'CNTN20', 'CNTN30', 'CNTN60', 'CNTD5', 'CNTD10', 'CNTD20', 'CNTD30', 'CNTD60', 'SUMP5', 'SUMP10', 'SUMP20', 'SUMP30', 'SUMP60', 'SUMN5', 'SUMN10', 'SUMN20', 'SUMN30', 'SUMN60', 'SUMD5', 'SUMD10', 'SUMD20', 'SUMD30', 'SUMD60', 'VMA5', 'VMA10', 'VMA20', 'VMA30', 'VMA60', 'VSTD5', 'VSTD10', 'VSTD20', 'VSTD30', 'VSTD60', 'WVMA5', 'WVMA10', 'WVMA20', 'WVMA30', 'WVMA60', 'VSUMP5', 'VSUMP10', 'VSUMP20', 'VSUMP30', 'VSUMP60', 'VSUMN5', 'VSUMN10', 'VSUMN20', 'VSUMN30', 'VSUMN60', 'VSUMD5', 'VSUMD10', 'VSUMD20', 'VSUMD30', 'VSUMD60','sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal', 'volume_change', 'obv', 'volume_ma_5', 'volume_ma_20', 'volume_ratio', 'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60', 'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',  'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread',
+    'mom_accel_5_10', 'up_down_ratio_5d', 'win_rate_5d',
+'downside_vol_10d', 'max_drawdown_10d',
+'sector_mom_5d', 'sector_mom_10d',
+'vs_sector_mom_5d', 'vs_sector_mom_10d',
+'market_mom_5d', 'market_mom_10d',
+'market_breadth_1d', 'market_vol_5d',
+'excess_mom_5d', 'excess_mom_10d',
+'sector_rank_5d', 'sector_breadth_5d']
 }
 feature_engineer_func_map = {
     '39': engineer_features_39,
@@ -576,7 +584,39 @@ def main():
     # 2. 特征工程与预处理
     train_data, features = preprocess_data(train_df, is_train=True, stockid2idx=stockid2idx)
     val_data, _ = preprocess_val_data(val_df, stockid2idx=stockid2idx)
-    
+        # 2.5 板块/市场级跨股票特征（需要合并后的DataFrame）
+    sector_file = os.path.join(data_path, 'hs300_stock_list_annotated.csv')
+    if os.path.exists(sector_file):
+        sector_df = pd.read_csv(sector_file, dtype={'code_clean': str})
+        sector_df['code_clean'] = sector_df['code_clean'].astype(str).str.zfill(6)
+        sector_map = sector_df.set_index('code_clean')['行业'].to_dict()
+        print(f"行业映射: {len(sector_map)} 只股票")
+        for data in [train_data, val_data]:
+            data['_行业'] = data['股票代码'].map(sector_map).fillna('未知')
+            # 板块动量 + 个股相对板块超额
+            for w_name, w_col in [('5d', 'return_5'), ('10d', 'return_10')]:
+                sector_avg = data.groupby(['日期', '_行业'])[w_col].transform('mean')
+                data[f'sector_mom_{w_name}'] = sector_avg
+                data[f'vs_sector_mom_{w_name}'] = data[w_col] - sector_avg
+            # 市场动量 + 宽度 + 波动率
+            data['market_mom_5d'] = data.groupby('日期')['return_5'].transform('mean')
+            data['market_mom_10d'] = data.groupby('日期')['return_10'].transform('mean')
+            data['market_breadth_1d'] = data.groupby('日期')['return_1'].transform(lambda x: (x > 0).mean())
+            data['market_vol_5d'] = data.groupby('日期')['return_1'].transform('std')
+            # 超额动量
+            data['excess_mom_5d'] = data['sector_mom_5d'] - data['market_mom_5d']
+            data['excess_mom_10d'] = data['sector_mom_10d'] - data['market_mom_10d']
+            # 板块排名（归一化，越大越好）
+            n_sec = data.groupby('日期')['_行业'].transform('nunique')
+            data['sector_rank_5d'] = data.groupby('日期')['sector_mom_5d'].rank(ascending=False)
+            data['sector_rank_5d'] = 1.0 - data['sector_rank_5d'] / (n_sec + 1)
+            # 板块宽度
+            data['sector_breadth_5d'] = data.groupby(['日期', '_行业'])['return_5'].transform(lambda x: (x > 0).mean())
+            data.drop(columns=['_行业'], inplace=True)
+            data.replace([np.inf, -np.inf], np.nan, inplace=True)
+    else:
+        print("[WARNING] 未找到行业分类文件，跳过板块特征")
+
     # 3. 标准化
     scaler = StandardScaler()
 
