@@ -108,7 +108,6 @@ http-client.private.env.json
 .idea/**/copilot.data.migration.*.xml
 
 # Byte-compiled / optimized / DLL files
-__pycache__/
 *.py[codz]
 *$py.class
 
@@ -117,9 +116,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -128,7 +125,6 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -259,7 +255,6 @@ activemq-data/
 # Environments
 .env
 .envrc
-.venv
 env/
 venv/
 ENV/
@@ -323,3 +318,4 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+/doc/

@@ -1,0 +1,27 @@
+# 虚拟环境 & 包管理器缓存
+/.venv/
+/.uv-cache/
+.pixi/
+uv.lock
+
+# IDE 配置
+/.idea/
+.vscode/
+
+# Python 生成文件 & 缓存
+__pycache__/
+*.py[oc]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+coverage.xml
+*.cover
+.hypothesis/
+
+/model/
+/temp/
+
+# 资源文件（如果 Cline 不需要读取图片等）
+/asset/
