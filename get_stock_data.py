@@ -111,7 +111,7 @@ def get_existing_stocks(output_path):
         df = pd.read_csv(output_path)
         if '股票代码' in df.columns and len(df) > 0:
             return set(df['股票代码'].unique())
-    except:
+    except Exception:
         pass
     return set()
 

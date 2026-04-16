@@ -74,7 +74,9 @@ def main():
 		device = torch.device('cpu')
 
 	model = StockTransformer(input_dim=len(features), config=config, num_stocks=len(stock_ids))
-	model.load_state_dict(torch.load(model_path, map_location=device))
+	# SECURITY: Use weights_only=True to prevent arbitrary code execution
+	# via pickle when loading model checkpoints from untrusted sources.
+	model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
 	model.to(device)
 	model.eval()
 
