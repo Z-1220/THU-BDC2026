@@ -456,6 +456,7 @@ def main():
     train_data[features] = scaler.fit_transform(train_data[features])
     val_data[features] = scaler.transform(val_data[features])
     joblib.dump(scaler, os.path.join(output_dir, 'scaler.pkl'))
+    joblib.dump(stockid2idx, os.path.join(output_dir, 'stockid2idx.pkl'))
 
     
     # 4. 创建排序数据集
