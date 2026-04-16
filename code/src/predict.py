@@ -49,7 +49,7 @@ def main():
 	stockid2idx = {sid: idx for idx, sid in enumerate(stock_ids)}
 
 	processed, features = preprocess(
-		raw_df, stockid2idx, config['feature_num'],
+		raw_df, stockid2idx, config['feature_scheme'],
 		desc='预测集特征工程', build_label=False,
 	)
 	processed[features] = processed[features].replace([np.inf, -np.inf], np.nan).fillna(0.0)

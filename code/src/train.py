@@ -436,11 +436,11 @@ def main():
     
     # 2. 特征工程与预处理
     train_data, features = preprocess(
-        train_df, stockid2idx, config['feature_num'],
+        train_df, stockid2idx, config['feature_scheme'],
         desc='训练集特征工程', build_label=True, drop_small_open=True,
     )
     val_data, _ = preprocess(
-        val_df, stockid2idx, config['feature_num'],
+        val_df, stockid2idx, config['feature_scheme'],
         desc='验证集特征工程', build_label=True, drop_small_open=True,
     )
     

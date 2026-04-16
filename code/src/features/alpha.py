@@ -1,9 +1,10 @@
-"""158 Alpha 因子 + 39 技术指标 合并特征方案。"""
+"""Alpha 因子 + 技术指标 + 高级特征 合并方案。"""
 import numpy as np
 import pandas as pd
 
 from features.registry import register_feature_scheme
-from features.technical39 import engineer_features_39
+from features.technical import engineer_technical_indicators
+from features.advanced import engineer_advanced_features, ADVANCED_COLUMNS
 
 
 def _rolling_linear_regression(x, y):
@@ -12,22 +13,22 @@ def _rolling_linear_regression(x, y):
     return beta[1], res[0] if len(res) > 0 else 0.0, np.sum((y - (x @ beta))**2)
 
 
-def engineer_features_158plus39(df):
+def engineer_combined_features(df):
     """
-    计算39个技术指标特征和158个Alpha特征，并合并它们。
+    合并 Alpha 因子、技术指标和高级个股特征。
     """
     # 为了避免修改原始DataFrame，创建一个副本
     df_copy = df.copy()
 
-    # 1. 计算158个Alpha特征
-    df_158 = engineer_features(df_copy)
+    # 1. 计算 Alpha 因子
+    df_alpha = engineer_alpha_factors(df_copy)
 
-    # 2. 计算39个技术指标特征
-    df_39 = engineer_features_39(df_copy)
+    # 2. 计算技术指标特征
+    df_tech = engineer_technical_indicators(df_copy)
 
     # 3. 合并两个DataFrame
-    # 首先，从df_39中选取我们需要的列，避免与df_158中的原始列（如'开盘'）重复
-    feature_cols_39 = [
+    # 首先，从 df_tech 中选取我们需要的列，避免与 df_alpha 中的原始列（如'开盘'）重复
+    tech_only_cols = [
         'sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal',
         'volume_change', 'obv', 'volume_ma_5', 'volume_ma_20', 'volume_ratio',
         'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60',
@@ -35,25 +36,28 @@ def engineer_features_158plus39(df):
         'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread'
     ]
 
-    # 确保所有列都存在于df_39中
-    feature_cols_39_exist = [col for col in feature_cols_39 if col in df_39.columns]
+    # 确保所有列都存在于 df_tech 中
+    tech_only_cols_exist = [col for col in tech_only_cols if col in df_tech.columns]
 
-    # 合并，df_158 已经包含了原始列和158个特征
-    df_final = pd.concat([df_158, df_39[feature_cols_39_exist]], axis=1)
+    # 合并，df_alpha 已经包含了原始列和 Alpha 因子
+    df_final = pd.concat([df_alpha, df_tech[tech_only_cols_exist]], axis=1)
 
     # 4. 处理可能因为合并产生的重复列（如果两个函数生成了同名特征）
     df_final = df_final.loc[:, ~df_final.columns.duplicated()]
 
-    # 5. 统一处理inf和NaN
+    # 5. 追加高级个股特征
+    df_final = engineer_advanced_features(df_final)
+
+    # 6. 统一处理inf和NaN
     df_final.replace([np.inf, -np.inf], np.nan, inplace=True)
     df_final.fillna(0, inplace=True)
 
     return df_final
 
 
-def engineer_features(df):
+def engineer_alpha_factors(df):
     """
-    使用talib加速特征计算
+    使用talib加速特征计算（Alpha 因子：K线、价格变化、回归、分位数、相关性等）。
     """
     try:
         import talib
@@ -278,8 +282,8 @@ def engineer_features(df):
     return df
 
 
-ALPHA_158_PLUS_39_COLUMNS = [
-    'instrument', '开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅',
+COMBINED_COLUMNS = [
+    '开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅',
     'KMID', 'KLEN', 'KMID2', 'KUP', 'KUP2', 'KLOW', 'KLOW2', 'KSFT', 'KSFT2',
     'OPEN0', 'HIGH0', 'LOW0', 'VWAP0',
     'ROC5', 'ROC10', 'ROC20', 'ROC30', 'ROC60',
@@ -315,8 +319,8 @@ ALPHA_158_PLUS_39_COLUMNS = [
     'volume_change', 'obv', 'volume_ma_5', 'volume_ma_20', 'volume_ratio',
     'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60',
     'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',
-    'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread'
-]
+    'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread',
+] + ADVANCED_COLUMNS
 
 
-register_feature_scheme('158+39', engineer_features_158plus39, ALPHA_158_PLUS_39_COLUMNS)
+register_feature_scheme('full', engineer_combined_features, COMBINED_COLUMNS)
