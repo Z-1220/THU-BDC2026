@@ -229,7 +229,7 @@ def main():
     os.makedirs(save_dir, exist_ok=True)
     
     start_date = "2024-01-01"
-    end_date = "2026-04-14"
+    end_date = "2026-04-15"
     
     output_path = os.path.join(save_dir, "stock_data.csv")
     
@@ -375,7 +375,7 @@ def main():
                 # 验证同一股票数据是否相邻
                 stock_blocks = df.groupby('股票代码').apply(lambda x: x.index.max() - x.index.min() + 1).sum()
                 if stock_blocks == len(df):
-                    print("  - 数据组织: ✓ 同一股票数据相邻")
+                    print("  - 数据组织: [OK] 同一股票数据相邻")
                 else:
                     print(f"  - 数据组织: 警告，股票数据块总长度({stock_blocks})与总行数({len(df)})不一致")
                 
