@@ -1,6 +1,6 @@
 # 配置参数
 sequence_length = 60
-feature_num = '158+39'
+feature_scheme = 'full'
 config = {
     'sequence_length': sequence_length,   # 使用过去60个交易日的数据（排序任务可以用稍短的序列）
     'd_model': 256,          # Transformer输入维度
@@ -11,7 +11,7 @@ config = {
     'num_epochs': 50,       # 排序任务可能需要更多epochs
     'learning_rate': 1e-5,  # 稍微降低学习率
     'dropout': 0.1,
-    'feature_num': feature_num,
+    'feature_scheme': feature_scheme,
     'model_class': 'StockTransformer',
     'max_grad_norm': 5.0,
 
@@ -19,6 +19,6 @@ config = {
     'base_weight': 1.0, # 非top-k样本权重
     'top5_weight': 2.0, # top-5样本权重（应大于base_weight）
 
-    'output_dir': f'./model/{sequence_length}_{feature_num}',
+    'output_dir': f'./model/{sequence_length}_{feature_scheme}',
     'data_path': './data',
 }
