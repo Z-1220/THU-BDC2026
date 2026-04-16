@@ -12,6 +12,7 @@ config = {
     'learning_rate': 1e-5,  # 稍微降低学习率
     'dropout': 0.1,
     'feature_num': feature_num,
+    'model_class': 'StockTransformer',
     'max_grad_norm': 5.0,
 
     'pairwise_weight': 1, # 配对损失权重
