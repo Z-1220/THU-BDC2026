@@ -15,9 +15,9 @@ CROSS_SECTIONAL_COLUMNS = [
     'sector_mom_5d', 'sector_mom_10d',
     'vs_sector_mom_5d', 'vs_sector_mom_10d',
     'market_mom_5d', 'market_mom_10d',
-    'market_breadth_1d', 'market_vol_5d',
+    'market_breadth_1d', 'market_dispersion',   # 原 market_vol_5d
     'excess_mom_5d', 'excess_mom_10d',
-    'sector_rank_5d', 'sector_breadth_5d',
+    'sector_rank_5d', 'sector_breadth',          # 原 sector_breadth_5d
     'cs_rank_return_5d', 'cs_zscore_return_5d',
 ]
 
@@ -46,10 +46,10 @@ def _add_cross_sectional_features(processed, data_path):
 
     if 'return_1' in processed.columns:
         processed['market_breadth_1d'] = processed.groupby('日期')['return_1'].transform(lambda x: (x > 0).mean())
-        processed['market_vol_5d'] = processed.groupby('日期')['return_1'].transform('std')
+        processed['market_dispersion'] = processed.groupby('日期')['return_1'].transform('std')
     else:
         processed['market_breadth_1d'] = 0.0
-        processed['market_vol_5d'] = 0.0
+        processed['market_dispersion'] = 0.0
 
     # --- 板块级特征（依赖行业分类文件）---
     sector_file = os.path.join(data_path, 'hs300_stock_list_annotated.csv')
@@ -78,15 +78,15 @@ def _add_cross_sectional_features(processed, data_path):
             processed['sector_rank_5d'] = 0.0
 
         if 'return_1' in processed.columns:
-            processed['sector_breadth_5d'] = processed.groupby(['日期', '_sector'])['return_1'].transform(lambda x: (x > 0).mean())
+            processed['sector_breadth'] = processed.groupby(['日期', '_sector'])['return_1'].transform(lambda x: (x > 0).mean())
         else:
-            processed['sector_breadth_5d'] = 0.0
+            processed['sector_breadth'] = 0.0
 
         processed.drop(columns=['_sector'], inplace=True)
     else:
         # 行业文件不存在时，板块特征填 0
         for col in ['sector_mom_5d', 'sector_mom_10d', 'vs_sector_mom_5d', 'vs_sector_mom_10d',
-                     'excess_mom_5d', 'excess_mom_10d', 'sector_rank_5d', 'sector_breadth_5d']:
+                     'excess_mom_5d', 'excess_mom_10d', 'sector_rank_5d', 'sector_breadth']:
             processed[col] = 0.0
 
     processed.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -137,9 +137,19 @@ def preprocess(df, stockid2idx, feature_scheme, desc='特征工程', build_label
 
     processed = pd.concat(processed_list).reset_index(drop=True)
 
-    # 跨截面特征（需要所有股票合并后才能计算）
+    # --- 高级个股特征开关 ---
+    # engineer_combined_features 总是会计算 advanced features（它们在 DataFrame 中），
+    # 但只有开关打开时才将它们纳入模型输入的 feature_columns。
+    if not config.get('enable_advanced_features', False):
+        from features.advanced import ADVANCED_COLUMNS
+        advanced_set = set(ADVANCED_COLUMNS)
+        feature_columns = [c for c in feature_columns if c not in advanced_set]
+
+    # --- 跨截面特征开关 ---
     processed['日期'] = pd.to_datetime(processed['日期'])
-    processed = _add_cross_sectional_features(processed, config['data_path'])
+    if config.get('enable_cross_sectional_features', False):
+        processed = _add_cross_sectional_features(processed, config['data_path'])
+        feature_columns = feature_columns + CROSS_SECTIONAL_COLUMNS
 
     # 映射股票索引，并剔除映射失败样本
     processed['instrument'] = processed['股票代码'].map(stockid2idx)
@@ -149,5 +159,4 @@ def preprocess(df, stockid2idx, feature_scheme, desc='特征工程', build_label
     if build_label:
         processed = _build_label_and_clean(processed, drop_small_open=drop_small_open)
 
-    feature_columns = feature_columns + CROSS_SECTIONAL_COLUMNS
     return processed, feature_columns
