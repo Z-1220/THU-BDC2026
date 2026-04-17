@@ -26,12 +26,13 @@ def engineer_advanced_features(df):
     df['win_rate_5d'] = (daily_ret > 0).astype(float).rolling(5).mean()
 
     # --- 风险度量 (2) ---
-    df['downside_vol_10d'] = daily_ret.rolling(10).apply(
-        lambda x: np.std(x[x < 0]) if np.sum(x < 0) >= 2 else 0.0, raw=True
-    )
-    cum = (1 + daily_ret).cumprod()
-    peak = cum.cummax()
-    df['max_drawdown_10d'] = ((peak - cum) / (peak + 1e-12)).rolling(10).max()
+    # 下行波动率：将正收益置零后计算滚动标准差（向量化，快速）
+    neg_ret = daily_ret.clip(upper=0)
+    df['downside_vol_10d'] = neg_ret.rolling(10).std()
+
+    # 最大回撤：10日滚动最高价到当前价的回撤（标准短期回撤定义）
+    rolling_high_10 = close.rolling(10).max()
+    df['max_drawdown_10d'] = (rolling_high_10 - close) / (rolling_high_10 + 1e-12)
 
     # --- 流动性 (3) ---
     df['amihud_illiq_5d'] = (daily_ret.abs() / (amount + 1e-12)).rolling(5).mean()
