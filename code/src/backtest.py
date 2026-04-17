@@ -1,7 +1,7 @@
 """精简回测脚本：模型推理 → Top K 选股 → 收益计算。
 
 设计要点：
-- 特征无关：通过 preprocessing.preprocess() + config['feature_num'] 自动处理
+- 特征无关：通过 preprocessing.preprocess() + config['feature_scheme'] 自动处理
 - 模型无关：通过 load_model() 动态导入模型类，类名从训练时保存的 config.json 中读取
 - 推理序列构建：复用 predict.build_inference_sequences()
 - 原始价格与标准化特征分离：raw_prices 在标准化之前提取
@@ -96,9 +96,9 @@ def main():
     raw_prices['open_t1'] = raw_prices.groupby('股票代码')['开盘'].shift(-1)
     raw_prices['open_t5'] = raw_prices.groupby('股票代码')['开盘'].shift(-5)
 
-    # 4. 特征工程（自动根据 config['feature_num'] 选择方案）
+    # 4. 特征工程（自动根据 config['feature_scheme'] 选择方案）
     processed, features = preprocess(
-        raw_df, stockid2idx, config['feature_num'],
+        raw_df, stockid2idx, config['feature_scheme'],
         desc='回测特征工程', build_label=False,
     )
     processed[features] = processed[features].replace([np.inf, -np.inf], np.nan).fillna(0.0)

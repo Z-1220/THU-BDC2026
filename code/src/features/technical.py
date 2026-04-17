@@ -1,13 +1,13 @@
-"""39 个技术指标特征方案。"""
+"""技术指标特征方案。"""
 import numpy as np
 import pandas as pd
 
 from features.registry import register_feature_scheme
 
 
-def engineer_features_39(df):
+def engineer_technical_indicators(df):
     """
-    计算39个技术指标特征。
+    计算技术指标特征。
     'stock_idx','开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅',
     'sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal', 'volume_change', 'obv',
     'volume_ma_5', 'volume_ma_20', 'volume_ratio', 'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std',
@@ -91,8 +91,8 @@ def engineer_features_39(df):
     return df
 
 
-TECHNICAL_39_COLUMNS = [
-    'instrument', '开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅',
+TECHNICAL_COLUMNS = [
+    '开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅',
     'sma_5', 'sma_20', 'ema_12', 'ema_26', 'rsi', 'macd', 'macd_signal', 'volume_change', 'obv',
     'volume_ma_5', 'volume_ma_20', 'volume_ratio', 'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std',
     'atr_14', 'ema_60', 'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',
@@ -100,4 +100,4 @@ TECHNICAL_39_COLUMNS = [
 ]
 
 
-register_feature_scheme('39', engineer_features_39, TECHNICAL_39_COLUMNS)
+register_feature_scheme('technical', engineer_technical_indicators, TECHNICAL_COLUMNS)
