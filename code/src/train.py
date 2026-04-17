@@ -426,7 +426,11 @@ def main():
     
     # 1. 数据加载
     data_file = os.path.join(data_path, 'train.csv')
-    full_df = pd.read_csv(data_file)
+    # 与 backtest.py / predict.py 保持一致：把股票代码读成字符串并 zfill(6)，
+    # 否则 stockid2idx.pkl 会存成 int 键，回测/推理加载后用 zfill 过的字符串 .map() 会全部 NaN，
+    # 导致 `dropna(subset=['instrument'])` 把所有样本丢掉。
+    full_df = pd.read_csv(data_file, dtype={'股票代码': str})
+    full_df['股票代码'] = full_df['股票代码'].astype(str).str.zfill(6)
     train_df, val_df, val_start = split_train_val_by_last_month(full_df, config['sequence_length'])
     
     # 获取所有股票ID，建立映射
