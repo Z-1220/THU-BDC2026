@@ -19,8 +19,9 @@ config = {
     'base_weight': 1.0, # 非top-k样本权重
     'top5_weight': 2.0, # top-5样本权重（应大于base_weight）
 
-    # 特征开关：默认关闭，逐组验证后再开启
-    'enable_advanced_features': False,        # 12个高级个股特征
+    # 特征开关：逐组验证后再开启
+    # Phase 1 (两者 False) 已验证，此次进入 Phase 2：只打开高级个股特征
+    'enable_advanced_features': True,         # 12个高级个股特征
     'enable_cross_sectional_features': False,  # 14个跨截面特征
 
     'output_dir': f'./model/{sequence_length}_{feature_scheme}',
