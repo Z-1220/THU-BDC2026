@@ -4,7 +4,6 @@ import pandas as pd
 
 from features.registry import register_feature_scheme
 from features.technical import engineer_technical_indicators
-from features.advanced import engineer_advanced_features, ADVANCED_COLUMNS
 
 
 def _rolling_linear_regression(x, y):
@@ -45,10 +44,7 @@ def engineer_combined_features(df):
     # 4. 处理可能因为合并产生的重复列（如果两个函数生成了同名特征）
     df_final = df_final.loc[:, ~df_final.columns.duplicated()]
 
-    # 5. 追加高级个股特征
-    df_final = engineer_advanced_features(df_final)
-
-    # 6. 统一处理inf和NaN
+    # 5. 统一处理inf和NaN
     df_final.replace([np.inf, -np.inf], np.nan, inplace=True)
     df_final.fillna(0, inplace=True)
 
@@ -320,7 +316,7 @@ COMBINED_COLUMNS = [
     'kdj_k', 'kdj_d', 'kdj_j', 'boll_mid', 'boll_std', 'atr_14', 'ema_60',
     'volatility_10', 'volatility_20', 'return_1', 'return_5', 'return_10',
     'high_low_spread', 'open_close_spread', 'high_close_spread', 'low_close_spread',
-] + ADVANCED_COLUMNS
+]
 
 
 register_feature_scheme('full', engineer_combined_features, COMBINED_COLUMNS)

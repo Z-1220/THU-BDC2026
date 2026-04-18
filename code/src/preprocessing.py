@@ -137,14 +137,6 @@ def preprocess(df, stockid2idx, feature_scheme, desc='特征工程', build_label
 
     processed = pd.concat(processed_list).reset_index(drop=True)
 
-    # --- 高级个股特征开关 ---
-    # engineer_combined_features 总是会计算 advanced features（它们在 DataFrame 中），
-    # 但只有开关打开时才将它们纳入模型输入的 feature_columns。
-    if not config.get('enable_advanced_features', False):
-        from features.advanced import ADVANCED_COLUMNS
-        advanced_set = set(ADVANCED_COLUMNS)
-        feature_columns = [c for c in feature_columns if c not in advanced_set]
-
     # --- 跨截面特征开关 ---
     processed['日期'] = pd.to_datetime(processed['日期'])
     if config.get('enable_cross_sectional_features', False):
