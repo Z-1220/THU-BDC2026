@@ -24,7 +24,7 @@ config = {
     # 根因是 advanced 里若干 ratio 特征除以近零值产生尾部异常值污染 StandardScaler。
     # 此次进入 Phase 3 替代路径：关闭 advanced，只打开跨截面特征验证。
     'enable_cross_sectional_features': True,   # 14个跨截面特征
-
+    "enable_grad_clip": True, # 是否启用梯度裁剪，默认启用以稳定训练
     'output_dir': f'./model/{sequence_length}_{feature_scheme}',
     'data_path': './data',
 }
