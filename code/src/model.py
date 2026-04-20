@@ -176,6 +176,21 @@ class PointwiseTransformerModel(Model):
         self._net: PointwiseStockTransformer | None = None
         self._fitted = False
 
+    def __getstate__(self) -> dict[str, Any]:
+        """Custom pickle serialization to exclude device."""
+        state = self.__dict__.copy()
+        state.pop("device", None)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Custom pickle deserialization to re-detect device."""
+        self.__dict__.update(state)
+        self.device = (
+            torch.device("cuda")
+            if torch.cuda.is_available()
+            else torch.device("cpu")
+        )
+
     # --------------------- 工具 ---------------------
     @staticmethod
     def _set_seed(seed: int) -> None:
@@ -317,11 +332,12 @@ class PointwiseTransformerModel(Model):
 
             if training:
                 optimizer.zero_grad()
-            pred = self._net(feat)
-            mask = ~torch.isnan(target)
-            if mask.sum() == 0:
-                continue
-            loss = self._loss(pred[mask], target[mask])
+            with torch.no_grad() if not training else torch.enable_grad():
+                pred = self._net(feat)
+                mask = ~torch.isnan(target)
+                if mask.sum() == 0:
+                    continue
+                loss = self._loss(pred[mask], target[mask])
             if training:
                 loss.backward()
                 if self.enable_grad_clip:

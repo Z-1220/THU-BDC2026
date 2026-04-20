@@ -52,8 +52,7 @@ def _safe_div(a: pd.Series, b: pd.Series) -> pd.Series:
 class ExtraTechnicalProcessor(Processor):
     """MACD signal / KDJ / ATR / OBV / RSI。
 
-    依赖基础字段：$close / $high / $low / $volume（由 Alpha158 feature config 或
-    handler 的额外 expression 暴露为小写列名；此处我们用 Qlib 原始列 "$close" 等）。
+    依赖基础字段：CLOSE0 / HIGH0 / LOW0 / VOLUME0（由 Alpha158 feature config 提供）。
     """
 
     def __init__(self, fields_group: str = "feature") -> None:
@@ -71,7 +70,7 @@ class ExtraTechnicalProcessor(Processor):
 
         feat = _get_feature_df(df, self.fields_group).copy()
 
-        required = {"$close", "$high", "$low", "$volume"}
+        required = {"CLOSE0", "HIGH0", "LOW0", "VOLUME0"}
         if not required.issubset(set(feat.columns)):
             return df
 
@@ -82,10 +81,10 @@ class ExtraTechnicalProcessor(Processor):
             sub = sub.sort_index()
             try:
                 indicators = compute_extra_technical(
-                    close=sub["$close"].to_numpy(),
-                    high=sub["$high"].to_numpy(),
-                    low=sub["$low"].to_numpy(),
-                    volume=sub["$volume"].to_numpy(),
+                    close=sub["CLOSE0"].to_numpy(),
+                    high=sub["HIGH0"].to_numpy(),
+                    low=sub["LOW0"].to_numpy(),
+                    volume=sub["VOLUME0"].to_numpy(),
                 )
             except ImportError:  # pragma: no cover
                 return df
@@ -119,7 +118,7 @@ class AdvancedFeatureProcessor(Processor):
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         feat = _get_feature_df(df, self.fields_group).copy()
 
-        required = {"$close", "$high", "$low", "$volume", "$amount"}
+        required = {"CLOSE0", "HIGH0", "LOW0", "VOLUME0"}
         if not required.issubset(set(feat.columns)):
             return df
 
@@ -127,11 +126,11 @@ class AdvancedFeatureProcessor(Processor):
 
         for instrument, sub in feat.groupby(level="instrument", sort=False):
             sub = sub.sort_index()
-            close = sub["$close"].astype(float)
-            high = sub["$high"].astype(float)
-            low = sub["$low"].astype(float)
-            volume = sub["$volume"].astype(float)
-            amount = sub["$amount"].astype(float)
+            close = sub["CLOSE0"].astype(float)
+            high = sub["HIGH0"].astype(float)
+            low = sub["LOW0"].astype(float)
+            volume = sub["VOLUME0"].astype(float)
+            amount = sub.get("AMOUNT0", pd.Series(np.nan, index=sub.index)).astype(float)
 
             ret1 = close.pct_change(1)
             ret5 = close.pct_change(5)
@@ -210,6 +209,7 @@ class CrossSectionalProcessor(Processor):
         self.fields_group = fields_group
         self.sector_map_path = sector_map_path
         self._sector_map: dict[str, str] | None = self._load_sector_map()
+        self.config(include=["_sector_map"])
 
     def _load_sector_map(self) -> dict[str, str] | None:
         if not self.sector_map_path:
@@ -225,13 +225,13 @@ class CrossSectionalProcessor(Processor):
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         feat = _get_feature_df(df, self.fields_group).copy()
 
-        # 优先用 handler 中预先算好的 RET1/RET5/RET10 表达式；若不存在，从 $close 重建
+        # 优先用 handler 中预先算好的 RET1/RET5/RET10 表达式；若不存在，从 CLOSE0 重建
         if {"RET1", "RET5", "RET10"}.issubset(set(feat.columns)):
             ret1 = feat["RET1"]
             ret5 = feat["RET5"]
             ret10 = feat["RET10"]
-        elif "$close" in feat.columns:
-            close = feat["$close"].astype(float)
+        elif "CLOSE0" in feat.columns:
+            close = feat["CLOSE0"].astype(float)
             ret1 = close.groupby(level="instrument").pct_change(1)
             ret5 = close.groupby(level="instrument").pct_change(5)
             ret10 = close.groupby(level="instrument").pct_change(10)
@@ -301,3 +301,8 @@ class CrossSectionalProcessor(Processor):
 
         out.replace([np.inf, -np.inf], np.nan, inplace=True)
         return _set_feature_df(df, out, self.fields_group)
+
+    def __setstate__(self, state: dict):
+        self.__dict__.update(state)
+        if not hasattr(self, "_sector_map"):
+            self._sector_map = self._load_sector_map()

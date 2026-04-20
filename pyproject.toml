@@ -7,9 +7,11 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
     "akshare>=1.18.28",
     "baostock>=0.8.9",
+    "catboost>=1.2.10",
     "dict",
     "docker>=7.1.0",
     "joblib>=1.5.2",
+    "lightgbm>=4.6.0",
     "matplotlib>=3.10.6",
     "numpy>=2.2.6",
     "pandas>=2.3.2",
@@ -22,6 +24,7 @@ dependencies = [
     "tensorboardx>=2.6.4",
     "torch>=2.6.0",
     "tqdm>=4.67.1",
+    "xgboost>=3.2.0",
 ]
 
 [[tool.uv.index]]

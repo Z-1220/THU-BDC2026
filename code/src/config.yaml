@@ -10,7 +10,7 @@ qlib_init:
 
 # --- 数据时间段 ---
 data:
-  train_start: "2024-01-01"
+  train_start: "2018-01-01"
   train_end: "2026-02-10"
   valid_start: "2026-02-11"
   valid_end: "2026-04-10"
@@ -30,7 +30,7 @@ features:
 
 # --- 模型超参数 ---
 model:
-  class: "PointwiseStockTransformer"
+  class: "code.src.model.PointwiseTransformerModel"
   d_model: 256
   nhead: 4
   num_layers: 3

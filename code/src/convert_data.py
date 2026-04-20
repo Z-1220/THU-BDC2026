@@ -164,7 +164,7 @@ def main() -> None:
     parser.add_argument("--qlib_dir", default="./qlib_data/hs300_data", help="Qlib 数据输出目录")
     parser.add_argument(
         "--sector_csv",
-        default="./doc/行业分类.csv",
+        default="./data/行业分类.csv",
         help="中证行业分类 CSV 路径（可选）",
     )
     parser.add_argument(

@@ -21,9 +21,11 @@ import yaml
 import qlib
 from qlib.config import REG_CN
 from qlib.data.dataset import TSDatasetH
+from qlib.data.dataset.handler import DataHandlerLP
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from dataset_utils import TSDatasetHWithFill  # noqa: E402
 from handler import StockDataHandler  # noqa: E402  供 pickle 反序列化
 
 
@@ -60,6 +62,9 @@ def run(config_path: str) -> None:
         model = pickle.load(f)
     with open(dataset_path, "rb") as f:
         dataset: TSDatasetH = pickle.load(f)
+
+    if not hasattr(dataset.handler, "_infer"):
+        dataset.handler.setup_data(init_type=DataHandlerLP.IT_FIT_SEQ)
 
     # 对 test 段打分（config 中 test_start..test_end 应覆盖到最新推理窗口）
     pred = model.predict(dataset, segment="test")

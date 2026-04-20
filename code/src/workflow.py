@@ -8,8 +8,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import pickle
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -26,8 +28,9 @@ from qlib.data.dataset.handler import DataHandlerLP
 # 确保自定义 Handler / Processor / Model 所在目录可 import
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from dataset_utils import TSDatasetHWithFill  # noqa: E402
 from handler import StockDataHandler  # noqa: E402
 from model import PointwiseTransformerModel  # noqa: E402
 
@@ -55,7 +58,7 @@ def build_handler(cfg: dict[str, Any]) -> DataHandlerLP:
 
 def build_dataset(cfg: dict[str, Any], handler: DataHandlerLP) -> TSDatasetH:
     data_cfg = cfg["data"]
-    return TSDatasetH(
+    return TSDatasetHWithFill(
         handler=handler,
         segments={
             "train": (data_cfg["train_start"], data_cfg["train_end"]),
@@ -63,31 +66,47 @@ def build_dataset(cfg: dict[str, Any], handler: DataHandlerLP) -> TSDatasetH:
             "test": (data_cfg["test_start"], data_cfg["test_end"]),
         },
         step_len=cfg["features"]["sequence_length"],
+        fillna_type="ffill+bfill",
     )
 
 
-def build_model(cfg: dict[str, Any]) -> PointwiseTransformerModel:
+def build_model(cfg: dict[str, Any]):
     mcfg = cfg["model"]
     tcfg = cfg["training"]
-    return PointwiseTransformerModel(
-        seq_len=cfg["features"]["sequence_length"],
-        d_model=mcfg.get("d_model", 256),
-        nhead=mcfg.get("nhead", 4),
-        num_layers=mcfg.get("num_layers", 3),
-        dim_feedforward=mcfg.get("dim_feedforward", 512),
-        dropout=mcfg.get("dropout", 0.1),
-        batch_size=tcfg.get("batch_size", 256),
-        n_epochs=tcfg.get("num_epochs", 50),
-        lr=float(tcfg.get("learning_rate", 1e-4)),
-        weight_decay=float(tcfg.get("weight_decay", 1e-5)),
-        max_grad_norm=tcfg.get("max_grad_norm", 5.0),
-        enable_grad_clip=tcfg.get("enable_grad_clip", True),
-        early_stop=tcfg.get("early_stop_patience", 10),
-        loss=tcfg.get("loss", "mse"),
-        scheduler=tcfg.get("scheduler", "cosine"),
-        num_workers=tcfg.get("num_workers", 0),
-        seed=tcfg.get("seed", 42),
-    )
+
+    # 动态加载模型类，兼容 config.yaml 中 class 字段
+    model_class = PointwiseTransformerModel
+    class_path = mcfg.get("class")
+    if class_path:
+        try:
+            module_path, class_name = class_path.rsplit(".", 1)
+            module = importlib.import_module(module_path)
+            model_class = getattr(module, class_name)
+        except Exception:
+            model_class = PointwiseTransformerModel
+
+    # 模型初始化参数（原样传递）
+    model_kwargs = {
+        "seq_len": cfg["features"]["sequence_length"],
+        "d_model": mcfg.get("d_model", 256),
+        "nhead": mcfg.get("nhead", 4),
+        "num_layers": mcfg.get("num_layers", 3),
+        "dim_feedforward": mcfg.get("dim_feedforward", 512),
+        "dropout": mcfg.get("dropout", 0.1),
+        "batch_size": tcfg.get("batch_size", 256),
+        "n_epochs": tcfg.get("num_epochs", 50),
+        "lr": float(tcfg.get("learning_rate", 1e-4)),
+        "weight_decay": float(tcfg.get("weight_decay", 1e-5)),
+        "max_grad_norm": tcfg.get("max_grad_norm", 5.0),
+        "enable_grad_clip": tcfg.get("enable_grad_clip", True),
+        "early_stop": tcfg.get("early_stop_patience", 10),
+        "loss": tcfg.get("loss", "mse"),
+        "scheduler": tcfg.get("scheduler", "cosine"),
+        "num_workers": tcfg.get("num_workers", 0),
+        "seed": tcfg.get("seed", 42),
+    }
+    
+    return model_class(**model_kwargs)
 
 
 def compute_ic_metrics(pred: pd.Series, label: pd.Series) -> dict[str, float]:
