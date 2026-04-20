@@ -220,7 +220,7 @@ def main():
     save_dir = "./data"
     os.makedirs(save_dir, exist_ok=True)
     
-    start_date = "2024-01-01"
+    start_date = "2015-01-01"
     end_date = "2026-04-17"
     
     output_path = os.path.join(save_dir, "stock_data.csv")
