@@ -1,9 +1,5 @@
-"""Qlib workflow：初始化 -> 构建 Dataset -> 训练 -> 评估 -> 回测。
-
-用法：
-    uv run code/src/workflow.py --config code/src/config.yaml
-
-严格的时间切分 + 无数据泄露由 Qlib 框架（TSDatasetH + `DataHandlerLP.setup_data`）保证。
+"""Qlib workflow：初始化 -> 构建 Dataset -> 训练 -> 评估 -> 滚动模拟。
+用法： uv run code/src/workflow.py --config code/src/config.yaml
 """
 from __future__ import annotations
 
@@ -11,23 +7,20 @@ import argparse
 import importlib
 import os
 import pickle
-from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import yaml
-
 import qlib
 from qlib.config import REG_CN
-from qlib.contrib.evaluate import risk_analysis
 from qlib.data.dataset import TSDatasetH
 from qlib.data.dataset.handler import DataHandlerLP
+from portfolio import create_optimizer, fetch_daily_returns
 
 # 确保自定义 Handler / Processor / Model 所在目录可 import
 import sys
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dataset_utils import TSDatasetHWithFill  # noqa: E402
@@ -46,7 +39,7 @@ def build_handler(cfg: dict[str, Any]) -> DataHandlerLP:
     return StockDataHandler(
         instruments=data_cfg.get("instruments", "all"),
         start_time=data_cfg["train_start"],
-        end_time=data_cfg["test_end"],
+        end_time=data_cfg["oos_end"],
         fit_start_time=data_cfg["train_start"],
         fit_end_time=data_cfg["train_end"],
         enable_extra_technical=feat_cfg.get("enable_extra_technical", True),
@@ -62,8 +55,8 @@ def build_dataset(cfg: dict[str, Any], handler: DataHandlerLP) -> TSDatasetH:
         handler=handler,
         segments={
             "train": (data_cfg["train_start"], data_cfg["train_end"]),
-            "valid": (data_cfg["valid_start"], data_cfg["valid_end"]),
-            "test": (data_cfg["test_start"], data_cfg["test_end"]),
+            # Qlib 内部早停机制硬编码依赖 "valid" 这个 key，所以 key 还叫 valid，但数据范围填 OOS
+            "valid": (data_cfg["oos_start"], data_cfg["oos_end"]),
         },
         step_len=cfg["features"]["sequence_length"],
         fillna_type="ffill+bfill",
@@ -105,7 +98,6 @@ def build_model(cfg: dict[str, Any]):
         "num_workers": tcfg.get("num_workers", 0),
         "seed": tcfg.get("seed", 42),
     }
-    
     return model_class(**model_kwargs)
 
 
@@ -127,6 +119,7 @@ def compute_ic_metrics(pred: pd.Series, label: pd.Series) -> dict[str, float]:
     ric_mean = daily_ric.mean()
     ic_std = daily_ic.std()
     ric_std = daily_ric.std()
+
     return {
         "IC": float(ic_mean),
         "ICIR": float(ic_mean / ic_std) if ic_std and ic_std > 0 else float("nan"),
@@ -135,46 +128,56 @@ def compute_ic_metrics(pred: pd.Series, label: pd.Series) -> dict[str, float]:
     }
 
 
-def simple_top_k_backtest(
+def rolling_weekly_eval(
     pred: pd.Series,
     label: pd.Series,
-    top_k: int,
+    optimizer,
+    daily_returns: pd.DataFrame | None,
     rebalance_freq: int,
 ) -> dict[str, float]:
-    """最简 Top-K 选股回测：每 rebalance_freq 个交易日调仓，等权买入前 k 名。"""
     aligned = pd.concat([pred.rename("pred"), label.rename("label")], axis=1).dropna()
     if aligned.empty:
         return {}
 
     dates = sorted({d for d, _ in aligned.index})
     rebalance_dates = dates[::rebalance_freq]
-    returns = []
+
+    weekly_scores = []
     for d in rebalance_dates:
         if d not in aligned.index.get_level_values("datetime"):
             continue
-        day = aligned.xs(d, level="datetime").sort_values("pred", ascending=False).head(top_k)
-        if day.empty:
-            continue
-        returns.append(day["label"].mean())
+        day = aligned.xs(d, level="datetime")
+        scores = day["pred"].sort_values(ascending=False)
 
-    if not returns:
+        ret_slice = daily_returns.loc[:d] if daily_returns is not None else None
+        weights_dict = optimizer(scores, ret_slice)
+        if not weights_dict:
+            continue
+
+        selected_labels = day.loc[list(weights_dict.keys()), "label"]
+        w_arr = np.array([weights_dict[c] for c in selected_labels.index])
+        l_arr = selected_labels.values
+        weekly_scores.append(float(np.dot(w_arr, l_arr)))
+
+    if not weekly_scores:
         return {}
-    arr = np.array(returns)
-    cum = float(np.prod(1 + arr) - 1)
+    arr = np.array(weekly_scores)
     return {
-        "rebalance_count": len(arr),
-        "avg_return": float(arr.mean()),
-        "cum_return": cum,
+        "sim_weeks": len(arr),
+        "avg_score": float(arr.mean()),
+        "median_score": float(np.median(arr)),
         "win_rate": float((arr > 0).mean()),
+        "worst_week": float(arr.min()),
+        "best_week": float(arr.max()),
     }
 
 
 def run(config_path: str) -> None:
     cfg = load_config(config_path)
-
     qi = cfg["qlib_init"]
     provider_uri = qi["provider_uri"]
     region = qi.get("region", "cn")
+
     qlib.init(
         provider_uri=provider_uri,
         region=REG_CN if region == "cn" else region,
@@ -208,35 +211,36 @@ def run(config_path: str) -> None:
     else:
         label_all = raw_label_all.iloc[:, 0]
 
-    # --- 评估（valid） ---
+    # --- 评估（valid IC） ---
     pred = model.predict(dataset, segment="valid")
     label = label_all.reindex(pred.index)
     metrics = compute_ic_metrics(pred, label)
     print("[valid] IC metrics:")
     for k, v in metrics.items():
-        print(f"  {k}: {v:.4f}" if v == v else f"  {k}: nan")
+        print(f" {k}: {v:.4f}" if v == v else f" {k}: nan")
 
-    # --- 回测（test） ---
-    pred_test = model.predict(dataset, segment="test")
-    label_test = label_all.reindex(pred_test.index)
-    bt = simple_top_k_backtest(
-        pred_test,
-        label_test,
-        top_k=cfg["backtest"]["top_k"],
+    # --- 验证集滚动评估（北极星指标） ---
+    data_cfg = cfg["data"]
+    optimizer = create_optimizer(cfg)
+    daily_returns = fetch_daily_returns(
+        start_time=data_cfg["train_start"],
+        end_time=data_cfg["oos_end"],  
+        instruments=data_cfg.get("instruments", "all"),
+    )
+    
+    ve = rolling_weekly_eval(
+        pred, label,
+        optimizer=optimizer,
+        daily_returns=daily_returns,
         rebalance_freq=cfg["backtest"]["rebalance_freq"],
     )
-    if bt:
-        print("[test] Top-K backtest:")
-        for k, v in bt.items():
-            if isinstance(v, float):
-                print(f"  {k}: {v:.4f}")
-            else:
-                print(f"  {k}: {v}")
+    if ve:
+        print(f"\n[OOS 滚动测试] 区间={data_cfg['oos_start']}~{data_cfg['oos_end']}, optimizer={cfg.get('portfolio', {}).get('optimizer', 'equal')}:")
+        for k, v in ve.items():
+            print(f" {k}: {v:.4f}")
+    else:
+        print("\n[OOS 滚动测试] 无结果。")
 
-    # --- 预测分数落盘（供人工 check） ---
-    pd.concat(
-        [pred_test.rename("score"), label_test.rename("label")], axis=1
-    ).to_csv(out_dir / "test_predictions.csv")
 
 
 def main() -> None:

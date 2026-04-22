@@ -22,6 +22,7 @@ import qlib
 from qlib.config import REG_CN
 from qlib.data.dataset import TSDatasetH
 from qlib.data.dataset.handler import DataHandlerLP
+from portfolio import create_optimizer, fetch_daily_returns, to_competition_code
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -66,38 +67,44 @@ def run(config_path: str) -> None:
     if not hasattr(dataset.handler, "_infer"):
         dataset.handler.setup_data(init_type=DataHandlerLP.IT_FIT_SEQ)
 
-    # 对 test 段打分（config 中 test_start..test_end 应覆盖到最新推理窗口）
+    # 1. 对最后一个交易日打分
+    # ---------------------------------------------------------------
     pred = model.predict(dataset, segment="test")
     if pred.empty:
-        raise RuntimeError("test 段为空，无法生成提交。请检查 config 中的 test_start/test_end。")
+        pred = model.predict(dataset, segment="valid")
+    if pred.empty:
+        raise RuntimeError("没有任何可预测的数据。")
 
-    # 取最后一个交易日横截面的预测
     last_date = pred.index.get_level_values("datetime").max()
     day_scores = pred.xs(last_date, level="datetime").sort_values(ascending=False)
 
-    top_k = int(cfg["backtest"].get("top_k", 5))
-    top = day_scores.head(top_k)
-    if len(top) < top_k:
-        raise RuntimeError(
-            f"可预测股票数 {len(top)} 小于 top_k={top_k}，请检查数据覆盖与 sequence_length。"
-        )
-
-    weight = 1.0 / top_k
-    out_df = pd.DataFrame(
-        {
-            "stock_id": [to_competition_code(c) for c in top.index],
-            "weight": [weight] * len(top),
-        }
+    # ---------------------------------------------------------------
+    # 2. 组合优化
+    # ---------------------------------------------------------------
+    optimizer = create_optimizer(cfg)
+    data_cfg = cfg["data"]
+    daily_returns = fetch_daily_returns(
+        start_time=data_cfg["train_start"],
+        end_time=data_cfg["oos_end"],
+        instruments=data_cfg.get("instruments", "all"),
     )
+    weights_dict = optimizer(day_scores, daily_returns)
 
+    # ---------------------------------------------------------------
+    # 3. 输出
+    # ---------------------------------------------------------------
+    result_df = pd.DataFrame({
+        "stock_id": [to_competition_code(c) for c in weights_dict.keys()],
+        "weight": list(weights_dict.values()),
+    })
     result_path = Path(cfg["output"]["result_path"])
     result_path.parent.mkdir(parents=True, exist_ok=True)
-    out_df.to_csv(result_path, index=False)
+    result_df.to_csv(result_path, index=False)
 
     print(f"预测日期: {pd.Timestamp(last_date).date()}")
-    print(f"参与排序股票数: {len(day_scores)}")
+    print(f"优化器: {cfg.get('portfolio', {}).get('optimizer', 'equal')}")
     print(f"结果已写入: {result_path}")
-    print(out_df)
+    print(result_df.to_string(index=False))
 
 
 def main() -> None:

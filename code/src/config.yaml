@@ -10,12 +10,10 @@ qlib_init:
 
 # --- 数据时间段 ---
 data:
-  train_start: "2018-01-01"
+  train_start: "2024-01-01"
   train_end: "2026-02-10"
-  valid_start: "2026-02-11"
-  valid_end: "2026-04-10"
-  test_start: "2026-04-13"
-  test_end: "2026-04-17"
+  oos_start: "2026-02-11"     # Out-of-Sample 滚动测试段起点
+  oos_end: "2026-04-17"    # Out-of-Sample 滚动测试段终点（比赛截止日期前一天）
   instruments: "all"
   raw_csv_path: "./data/stock_data.csv"
   sector_map_path: "./data/sector_map.json"
@@ -67,3 +65,11 @@ backtest:
 output:
   model_dir: "./model/qlib_full"
   result_path: "./output/result.csv"
+
+# --- 股票组合优化 ---
+portfolio:
+  optimizer: "risk_parity"
+  top_k: 5
+  params:
+    risk_model: "ledoit_wolf"
+    lookback: 60
