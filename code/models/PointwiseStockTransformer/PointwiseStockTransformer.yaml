@@ -1,9 +1,7 @@
-# --- Qlib 初始化 ---
-qlib_init:
+﻿qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn
 
-# --- 实验任务 ---
 task:
   model:
     class: PointwiseTransformerModel
@@ -29,40 +27,45 @@ task:
     kwargs:
       handler:
         class: StockDataHandler
-        module_path: "code.handlers.handler"
+        module_path: "code.handlers.stock_handler"
         kwargs:
           instruments: "csi300"
           start_time: "2024-01-01"
           end_time: "2026-04-17"
           fit_start_time: "2024-01-01"
           fit_end_time: "2026-02-10"
-          # Processors 全部由 YAML 注入
           infer_processors:
-            # 第一步：计算表达式无法描述的复杂技术指标
-            - class: ExtraTechnicalProcessor
+            - class: MomentumProcessor
               module_path: "code.processors.custom_processor"
-              kwargs:
-                fields_group: "feature"
-            # 第二步：高级个股特征
-            - class: AdvancedFeatureProcessor
+            - class: VolatilityProcessor
               module_path: "code.processors.custom_processor"
-              kwargs:
-                fields_group: "feature"
-            # 第三步：横截面特征（行业/市场）
-            - class: CrossSectionalProcessor
+            - class: VolumeProcessor
               module_path: "code.processors.custom_processor"
-              kwargs:
-                fields_group: "feature"
-            # 第四步：稳健标准化
+            - class: MomentumQualityProcessor
+              module_path: "code.processors.custom_processor"
+            - class: TailRiskProcessor
+              module_path: "code.processors.custom_processor"
+            - class: DistributionProcessor
+              module_path: "code.processors.custom_processor"
+            - class: LiquidityProcessor
+              module_path: "code.processors.custom_processor"
+            - class: PricePositionProcessor
+              module_path: "code.processors.custom_processor"
+            - class: VolatilityStructureProcessor
+              module_path: "code.processors.custom_processor"
+            - class: CrossSectionalRankProcessor
+              module_path: "code.processors.custom_processor"
+            - class: MarketLevelProcessor
+              module_path: "code.processors.custom_processor"
+            - class: SectorLevelProcessor
+              module_path: "code.processors.custom_processor"
             - class: RobustZScoreNorm
               kwargs:
                 fields_group: "feature"
                 clip_outlier: True
-            # 第五步：缺失值填充
             - class: Fillna
               kwargs:
                 fields_group: "feature"
-          # 训练时额外处理：删除标签缺失的样本
           learn_processors:
             - class: DropnaLabel
       segments:

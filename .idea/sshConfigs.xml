@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SshConfigs">
-    <configs>
-      <sshConfig authType="PASSWORD" connectionConfig="{&quot;serverAliveInterval&quot;:300}" host="connect.westd.seetacloud.com" id="a031828d-f525-44d1-bc60-594da2a4f3a4" port="34848" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="false" />
-      <sshConfig authType="PASSWORD" connectionConfig="{&quot;serverAliveInterval&quot;:300}" host="10.155.12.21" id="cadfd63d-b908-42ea-b772-94e835e6169c" port="22" nameFormat="DESCRIPTIVE" username="ubuntu" useOpenSSHConfig="true" />
-    </configs>
-  </component>
-</project>

@@ -1,3 +1,6 @@
-/bin/bash /app/init.sh
-# /bin/bash /app/train.sh
-/bin/bash /app/test.sh
+#!/bin/bash
+set -e
+cd /app
+bash /app/init.sh
+bash /app/train.sh
+bash /app/test.sh

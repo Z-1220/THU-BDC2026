@@ -4,3 +4,6 @@ __pycache__
 .venv
 .vscode
 .idea
+.clinerules
+.github
+.clineignore

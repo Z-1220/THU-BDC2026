@@ -1,0 +1,1 @@
+uv run scripts/convert_data.py
