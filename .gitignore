@@ -319,3 +319,4 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 /doc/
+temp/qlib_data/

@@ -1,1 +1,0 @@
-Best epoch: 11\nBest final_score: 0.206850\n

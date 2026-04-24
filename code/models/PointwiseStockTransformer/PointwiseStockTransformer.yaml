@@ -1,0 +1,85 @@
+# --- Qlib 初始化 ---
+qlib_init:
+  provider_uri: "./temp/qlib_data"
+  region: cn
+
+# --- 实验任务 ---
+task:
+  model:
+    class: PointwiseTransformerModel
+    module_path: "code.models.pointwise_transformer"
+    kwargs:
+      d_feat: 6
+      seq_len: 60
+      d_model: 256
+      nhead: 4
+      num_layers: 3
+      dim_feedforward: 512
+      dropout: 0.1
+      batch_size: 64
+      n_epochs: 50
+      lr: 1.0e-4
+      weight_decay: 1.0e-5
+      loss: "mse"
+      seed: 42
+
+  dataset:
+    class: TSDatasetH
+    module_path: qlib.data.dataset
+    kwargs:
+      handler:
+        class: StockDataHandler
+        module_path: "code.handlers.handler"
+        kwargs:
+          instruments: "csi300"
+          start_time: "2024-01-01"
+          end_time: "2026-04-17"
+          fit_start_time: "2024-01-01"
+          fit_end_time: "2026-02-10"
+          # Processors 全部由 YAML 注入
+          infer_processors:
+            # 第一步：计算表达式无法描述的复杂技术指标
+            - class: ExtraTechnicalProcessor
+              module_path: "code.processors.custom_processor"
+              kwargs:
+                fields_group: "feature"
+            # 第二步：高级个股特征
+            - class: AdvancedFeatureProcessor
+              module_path: "code.processors.custom_processor"
+              kwargs:
+                fields_group: "feature"
+            # 第三步：横截面特征（行业/市场）
+            - class: CrossSectionalProcessor
+              module_path: "code.processors.custom_processor"
+              kwargs:
+                fields_group: "feature"
+            # 第四步：稳健标准化
+            - class: RobustZScoreNorm
+              kwargs:
+                fields_group: "feature"
+                clip_outlier: True
+            # 第五步：缺失值填充
+            - class: Fillna
+              kwargs:
+                fields_group: "feature"
+          # 训练时额外处理：删除标签缺失的样本
+          learn_processors:
+            - class: DropnaLabel
+      segments:
+        train: ["2024-01-01", "2026-02-10"]
+        valid: ["2026-02-11", "2026-04-10"]
+        test:  ["2026-04-13", "2026-04-17"]
+      step_len: 60
+      fillna_type: "ffill+bfill"
+
+  record:
+    - class: SignalRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        model: <MODEL>
+        dataset: <DATASET>
+    - class: SigAnaRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        ana_long_short: False
+        ann_scaler: 252
