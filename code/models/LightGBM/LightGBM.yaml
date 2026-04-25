@@ -1,6 +1,12 @@
 qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn
+  exp_manager:
+    class: MLflowExpManager
+    module_path: qlib.workflow.expm
+    kwargs:
+      uri: file://./temp/mlruns
+      default_exp_name: lgbm_test
 
 task:
   model:
@@ -22,7 +28,7 @@ task:
         class: StockDataHandler
         module_path: "code.handlers.stock_handler"
         kwargs:
-          instruments: "csi300"
+          instruments: "all"
           start_time: "2024-01-01"
           end_time: "2026-04-17"
           fit_start_time: "2024-01-01"

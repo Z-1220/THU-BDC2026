@@ -1,11 +1,17 @@
 ﻿qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn
+  exp_manager:
+    class: MLflowExpManager
+    module_path: qlib.workflow.expm
+    kwargs:
+      uri: file://./temp/mlruns
+      default_exp_name: pointwise_transformer_test
 
 task:
   model:
     class: PointwiseTransformerModel
-    module_path: "code.models.pointwise_transformer"
+    module_path: "code.models.PointwiseStockTransformer.PointwiseStockTransformer"
     kwargs:
       d_feat: 6
       seq_len: 60
@@ -29,7 +35,7 @@ task:
         class: StockDataHandler
         module_path: "code.handlers.stock_handler"
         kwargs:
-          instruments: "csi300"
+          instruments: "all"
           start_time: "2024-01-01"
           end_time: "2026-04-17"
           fit_start_time: "2024-01-01"

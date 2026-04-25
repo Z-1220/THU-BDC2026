@@ -15,7 +15,6 @@ from __future__ import annotations
 from typing import Any
 
 from qlib.contrib.data.handler import Alpha158
-from qlib.data.dataset.handler import get_group_columns  # 供 Processor 导入
 
 
 # ==========================================================================

@@ -18,7 +18,18 @@ import numpy as np
 import pandas as pd
 
 from qlib.data.dataset.processor import Processor
-from qlib.data.dataset.handler import get_group_columns
+
+
+def get_group_columns(df: pd.DataFrame, group: str) -> pd.Index:
+    """选择 qlib DataFrame 中第一级 MultiIndex 匹配 group 的列。
+    
+    qlib 数据格式的列通常具有两级 MultiIndex（fields_group, field_name），
+    例如 ('feature', 'CLOSE0')。
+    """
+    if isinstance(df.columns, pd.MultiIndex):
+        return df.columns[df.columns.get_level_values(0) == group]
+    # 对于单级列索引，尝试匹配以 fields_group 同名的前缀
+    return df.columns[df.columns.str.startswith(f"{group}_") if hasattr(df.columns, 'str') else df.columns == group]
 
 
 # ---------------------------------------------------------------------------

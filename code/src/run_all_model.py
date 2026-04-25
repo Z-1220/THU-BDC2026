@@ -152,7 +152,7 @@ def normalize_qlib_init(raw_cfg: dict[str, Any], config_path: Path, mlruns_root:
     """
     cfg = deepcopy(raw_cfg)
     if "provider_uri" in cfg:
-        cfg["provider_uri"] = resolve_local_path(str(cfg["provider_uri"]), config_path.parent)
+        cfg["provider_uri"] = resolve_local_path(str(cfg["provider_uri"]), REPO_ROOT)
 
     region = cfg.get("region", "cn")
     cfg["region"] = REG_CN if region == "cn" else region
@@ -175,8 +175,11 @@ def normalize_qlib_init(raw_cfg: dict[str, Any], config_path: Path, mlruns_root:
         kwargs["uri"] = f"file:{mlruns_root.resolve().as_posix()}"
     elif isinstance(uri, str) and uri.startswith("file:"):
         raw_uri_path = uri[5:]
+        # Handle both "file:path" and "file://path" URI formats
+        if raw_uri_path.startswith("//"):
+            raw_uri_path = raw_uri_path[2:]
         if raw_uri_path and not Path(raw_uri_path).is_absolute():
-            kwargs["uri"] = f"file:{(config_path.parent / raw_uri_path).resolve().as_posix()}"
+            kwargs["uri"] = f"file:{(REPO_ROOT / raw_uri_path).resolve().as_posix()}"
     return cfg
 
 
