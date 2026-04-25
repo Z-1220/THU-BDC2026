@@ -1,0 +1,22 @@
+{
+  "run_dir": "/home/ubuntu/competition/Z2025925435/THU-BDC2026/output/run_all_model/20260425_190513",
+  "yaml_paths": [
+    "/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/models/LightGBM/LightGBM.yaml"
+  ],
+  "manifests": [
+    {
+      "yaml_path": "/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/models/LightGBM/LightGBM.yaml",
+      "model_name": "LGBModel",
+      "experiment_name": "LightGBM",
+      "recorder_ids": [
+        "81e38fa6b3cb4e9e81a68e965da80842",
+        "9d48f42ce970418f9190bd027cb0e8e1",
+        "c057dfcbc1654bd68bfec3f9ac36d8c1",
+        "ddffca74a2484d0eb46cbcbf72f4b183"
+      ]
+    }
+  ],
+  "errors": {
+    "/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/models/LightGBM/LightGBM.yaml": "Traceback (most recent call last):\n  File \"/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/src/run_all_model.py\", line 492, in run\n    recorder_id = run_single_task(\n                  ^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/src/run_all_model.py\", line 369, in run_single_task\n    model.fit(dataset)\n  File \"/home/ubuntu/competition/Z2025925435/THU-BDC2026/.venv/lib/python3.12/site-packages/qlib/contrib/model/gbdt.py\", line 69, in fit\n    ds_l = self._prepare_data(dataset, reweighter)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/competition/Z2025925435/THU-BDC2026/.venv/lib/python3.12/site-packages/qlib/contrib/model/gbdt.py\", line 39, in _prepare_data\n    raise ValueError(\"Empty data from dataset, please check your dataset config.\")\nValueError: Empty data from dataset, please check your dataset config.\n"
+  }
+}

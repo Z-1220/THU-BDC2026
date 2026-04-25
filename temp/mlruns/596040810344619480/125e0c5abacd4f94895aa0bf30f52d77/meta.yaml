@@ -1,0 +1,14 @@
+artifact_uri: file:///home/ubuntu/competition/Z2025925435/THU-BDC2026/temp/mlruns/596040810344619480/125e0c5abacd4f94895aa0bf30f52d77/artifacts
+end_time: 1777118276206
+entry_point_name: ''
+experiment_id: '596040810344619480'
+lifecycle_stage: active
+run_id: 125e0c5abacd4f94895aa0bf30f52d77
+run_name: PointwiseStockTransformer_roll_01
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777117818640
+status: 3
+tags: []
+user_id: ubuntu

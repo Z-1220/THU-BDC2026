@@ -1,0 +1,2 @@
+﻿yaml_path,model_name,IC,ICIR,Rank IC,Rank ICIR,Annualized Return,Max Drawdown
+/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/models/LightGBM/LightGBM.yaml,LGBModel,0.08424367620970932,0.6834344040900074,0.04344542348948883,0.36536988159652917,,

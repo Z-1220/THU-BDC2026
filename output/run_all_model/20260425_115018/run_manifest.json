@@ -1,0 +1,21 @@
+{
+  "run_dir": "/home/ubuntu/competition/Z2025925435/THU-BDC2026/output/run_all_model/20260425_115018",
+  "yaml_paths": [
+    "/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/models/PointwiseStockTransformer/PointwiseStockTransformer.yaml"
+  ],
+  "manifests": [
+    {
+      "yaml_path": "/home/ubuntu/competition/Z2025925435/THU-BDC2026/code/models/PointwiseStockTransformer/PointwiseStockTransformer.yaml",
+      "model_name": "PointwiseTransformerModel",
+      "experiment_name": "PointwiseStockTransformer",
+      "recorder_ids": [
+        "125e0c5abacd4f94895aa0bf30f52d77",
+        "efca78dbc98a4ff0b0e2907ad2a357e0",
+        "afe64e1092dc4af9a273655920a79496",
+        "090a4b919b3d4b1f90194a7fff44d508",
+        "c357609255724bd4aa5271b5cc779fb3"
+      ]
+    }
+  ],
+  "errors": {}
+}

@@ -269,7 +269,8 @@ def build_weekly_rolling_tasks(
         segs = task["dataset"]["kwargs"]["segments"]
         segs["train"] = (ROLLING_TRAIN_START, train_end)
         segs["valid"] = (w_start, w_end)
-        segs.pop("test", None)  # 移除 test（如果存在）
+        # 保留 test 段指向 valid 的日期，因为 SignalRecord.generate() 会调用 model.predict(dataset, segment="test")
+        segs["test"] = (w_start, w_end)
 
         # 同步 handler 时间
         handler_cfg = task["dataset"]["kwargs"]["handler"]
@@ -331,12 +332,10 @@ def generate_records(
     # PortAnaRecord 需要从 record kwargs 或 task/full 配置中获取组合分析配置，
     # 这里统一解析该配置。
     port_config = port_kwargs.pop("config", None) or get_port_analysis_config(task, full_cfg, port_record_cfg)
-    if port_config is None:
-        raise KeyError(
-            "PortAnaRecord requires a `config`. Put it in `task.port_analysis_config`, "
-            "`port_analysis_config`, or `task.record[].kwargs.config`."
-        )
-    PortAnaRecord(recorder=recorder, config=port_config, **port_kwargs).generate()
+    if port_config is not None:
+        PortAnaRecord(recorder=recorder, config=port_config, **port_kwargs).generate()
+    else:
+        print("Skipping PortAnaRecord: no port_analysis_config provided.")
 
     for record_cfg in task.get("record", []) or []:
         class_name = record_class_name(record_cfg)

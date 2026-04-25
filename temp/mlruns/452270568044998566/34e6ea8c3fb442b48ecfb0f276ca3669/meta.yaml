@@ -1,0 +1,14 @@
+artifact_uri: file:///home/ubuntu/competition/Z2025925435/THU-BDC2026/temp/mlruns/452270568044998566/34e6ea8c3fb442b48ecfb0f276ca3669/artifacts
+end_time: 1777117797718
+entry_point_name: ''
+experiment_id: '452270568044998566'
+lifecycle_stage: active
+run_id: 34e6ea8c3fb442b48ecfb0f276ca3669
+run_name: LightGBM_roll_05
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777117780073
+status: 3
+tags: []
+user_id: ubuntu

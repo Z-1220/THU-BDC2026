@@ -22,9 +22,8 @@ from qlib.contrib.data.handler import Alpha158
 # ==========================================================================
 EXTRA_EXPR_FEATURES: list[tuple[str, str]] = [
     # --- 基础字段（供自定义 Processor 使用） ---
+    # 注意：HIGH0/LOW0 已在 Alpha158 中定义，此处不重复添加
     ("$close", "CLOSE0"),
-    ("$high", "HIGH0"),
-    ("$low", "LOW0"),
     ("$volume", "VOLUME0"),
     ("$amount", "AMOUNT0"),
     # --- 行业分类（已写入 Qlib 二进制数据的静态特征） ---

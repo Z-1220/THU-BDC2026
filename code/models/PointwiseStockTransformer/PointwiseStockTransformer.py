@@ -330,6 +330,9 @@ class PointwiseTransformerModel(Model):
             feat = batch[..., :-1]
             target = batch[:, -1, -1]  # 最后一天对应的 label
 
+            # 替换特征中的 NaN 为 0，避免 Transformer 前向传播产生 NaN
+            feat = torch.nan_to_num(feat, nan=0.0)
+
             if training:
                 optimizer.zero_grad()
             with torch.no_grad() if not training else torch.enable_grad():
@@ -374,6 +377,8 @@ class PointwiseTransformerModel(Model):
                     batch = torch.from_numpy(batch)
                 batch = batch.float().to(self.device)
                 feat = batch[..., :-1]
+                # 替换特征中的 NaN 为 0，避免 Transformer 前向传播产生 NaN
+                feat = torch.nan_to_num(feat, nan=0.0)
                 out = self._net(feat).detach().cpu().numpy()
                 preds.append(out)
 

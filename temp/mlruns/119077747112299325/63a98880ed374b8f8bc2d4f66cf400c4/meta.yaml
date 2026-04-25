@@ -1,0 +1,14 @@
+artifact_uri: file:///home/ubuntu/competition/Z2025925435/THU-BDC2026/temp/mlruns/119077747112299325/63a98880ed374b8f8bc2d4f66cf400c4/artifacts
+end_time: 1777112431693
+entry_point_name: ''
+experiment_id: '119077747112299325'
+lifecycle_stage: active
+run_id: 63a98880ed374b8f8bc2d4f66cf400c4
+run_name: mlflow_recorder
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777112417874
+status: 4
+tags: []
+user_id: ubuntu

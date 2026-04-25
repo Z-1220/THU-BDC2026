@@ -1,11 +1,11 @@
-﻿qlib_init:
+qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn
   exp_manager:
     class: MLflowExpManager
     module_path: qlib.workflow.expm
     kwargs:
-      uri: file://./temp/mlruns
+      uri: "file:./temp/mlruns"
       default_exp_name: pointwise_transformer_test
 
 task:
@@ -74,10 +74,17 @@ task:
                 fields_group: "feature"
           learn_processors:
             - class: DropnaLabel
+            - class: RobustZScoreNorm
+              kwargs:
+                fields_group: "feature"
+                clip_outlier: True
+            - class: Fillna
+              kwargs:
+                fields_group: "feature"
       segments:
         train: ["2024-01-01", "2026-02-10"]
-        valid: ["2026-02-11", "2026-04-10"]
-        test:  ["2026-04-13", "2026-04-17"]
+        valid: ["2026-02-11", "2026-04-03"]
+        test:  ["2026-04-07", "2026-04-10"]
       step_len: 60
       fillna_type: "ffill+bfill"
 

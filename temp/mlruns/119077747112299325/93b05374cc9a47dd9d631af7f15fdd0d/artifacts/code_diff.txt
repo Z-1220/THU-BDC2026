@@ -1,0 +1,264 @@
+diff --git a/code/models/LightGBM/LightGBM.yaml b/code/models/LightGBM/LightGBM.yaml
+index f66921a..47ffe59 100644
+--- a/code/models/LightGBM/LightGBM.yaml
++++ b/code/models/LightGBM/LightGBM.yaml
+@@ -5,7 +5,7 @@ qlib_init:
+     class: MLflowExpManager
+     module_path: qlib.workflow.expm
+     kwargs:
+-      uri: file://./temp/mlruns
++      uri: "file:./temp/mlruns"
+       default_exp_name: lgbm_test
+ 
+ task:
+@@ -82,4 +82,4 @@ task:
+       module_path: qlib.workflow.record_temp
+       kwargs:
+         ana_long_short: False
+-        ann_scaler: 252
+\ No newline at end of file
++        ann_scaler: 252
+diff --git a/code/models/PointwiseStockTransformer/PointwiseStockTransformer.yaml b/code/models/PointwiseStockTransformer/PointwiseStockTransformer.yaml
+index 6c3ea77..a6e5142 100644
+--- a/code/models/PointwiseStockTransformer/PointwiseStockTransformer.yaml
++++ b/code/models/PointwiseStockTransformer/PointwiseStockTransformer.yaml
+@@ -5,7 +5,7 @@
+     class: MLflowExpManager
+     module_path: qlib.workflow.expm
+     kwargs:
+-      uri: file://./temp/mlruns
++      uri: "file:./temp/mlruns"
+       default_exp_name: pointwise_transformer_test
+ 
+ task:
+@@ -91,4 +91,4 @@ task:
+       module_path: qlib.workflow.record_temp
+       kwargs:
+         ana_long_short: False
+-        ann_scaler: 252
+\ No newline at end of file
++        ann_scaler: 252
+diff --git a/code/processors/custom_processor.py b/code/processors/custom_processor.py
+index 755439b..15335c4 100644
+--- a/code/processors/custom_processor.py
++++ b/code/processors/custom_processor.py
+@@ -32,6 +32,46 @@ def get_group_columns(df: pd.DataFrame, group: str) -> pd.Index:
+     return df.columns[df.columns.str.startswith(f"{group}_") if hasattr(df.columns, 'str') else df.columns == group]
+ 
+ 
++def _get_feat_col(df: pd.DataFrame, col_name: str, fields_group: str = "feature") -> pd.Series:
++    """从 qlib MultiIndex DataFrame 中安全获取指定列名的 Series。
++    
++    支持两种格式：
++    1. MultiIndex: ('feature', 'CLOSE0') -> 使用 xs
++    2. 单级索引: 'CLOSE0' -> 直接访问
++    """
++    if isinstance(df.columns, pd.MultiIndex):
++        try:
++            return df.xs(col_name, level=1, axis=1)
++        except KeyError:
++            # 尝试在指定 group 下查找
++            try:
++                return df.xs(col_name, level=1, axis=1).iloc[:, 0]
++            except (KeyError, IndexError):
++                raise KeyError(f"Column '{col_name}' not found in DataFrame columns: {df.columns.tolist()}")
++    else:
++        return df[col_name]
++
++
++def _get_feat_col_single(df: pd.DataFrame, col_name: str) -> pd.Series:
++    """从单 instrument 子 DataFrame 中获取列值，返回 1D Series。
++    
++    处理 MultiIndex 列的情况：当 groupby 后，子 DataFrame 仍保留 MultiIndex 列。
++    """
++    if isinstance(df.columns, pd.MultiIndex):
++        # 尝试在第二级查找
++        level1_vals = df.columns.get_level_values(1)
++        mask = level1_vals == col_name
++        if mask.any():
++            return df.iloc[:, mask.values].iloc[:, 0]
++        # 尝试在第一级查找
++        level0_vals = df.columns.get_level_values(0)
++        mask0 = level0_vals == col_name
++        if mask0.any():
++            return df.iloc[:, mask0.values].iloc[:, 0]
++        raise KeyError(f"Column '{col_name}' not found in MultiIndex columns: {list(df.columns)}")
++    return df[col_name]
++
++
+ # ---------------------------------------------------------------------------
+ # 纯 TA‑Lib 指标
+ # ---------------------------------------------------------------------------
+@@ -61,9 +101,9 @@ class MomentumProcessor(Processor):
+ 
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            close = sub["CLOSE0"].values.astype(float)
+-            high = sub["HIGH0"].values.astype(float)
+-            low = sub["LOW0"].values.astype(float)
++            close = _get_feat_col_single(sub, "CLOSE0").values.astype(float)
++            high = _get_feat_col_single(sub, "HIGH0").values.astype(float)
++            low = _get_feat_col_single(sub, "LOW0").values.astype(float)
+ 
+             _, macd_signal, macd_hist = talib.MACD(close)
+             rsi = talib.RSI(close, timeperiod=14)
+@@ -108,10 +148,12 @@ class VolatilityProcessor(Processor):
+         series_list = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            atr = talib.ATR(sub["HIGH0"].values.astype(float),
+-                            sub["LOW0"].values.astype(float),
+-                            sub["CLOSE0"].values.astype(float),
+-                            timeperiod=14)
++            atr = talib.ATR(
++                _get_feat_col_single(sub, "HIGH0").values.astype(float),
++                _get_feat_col_single(sub, "LOW0").values.astype(float),
++                _get_feat_col_single(sub, "CLOSE0").values.astype(float),
++                timeperiod=14,
++            )
+             series_list.append(pd.Series(atr, index=sub.index, name="ATR14"))
+ 
+         atr_series = pd.concat(series_list).sort_index().reindex(feat.index)
+@@ -145,8 +187,10 @@ class VolumeProcessor(Processor):
+         obv_list = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            obv = talib.OBV(sub["CLOSE0"].values.astype(float),
+-                            sub["VOLUME0"].values.astype(float))
++            obv = talib.OBV(
++                _get_feat_col_single(sub, "CLOSE0").values.astype(float),
++                _get_feat_col_single(sub, "VOLUME0").values.astype(float),
++            )
+             obv_list.append(pd.Series(obv, index=sub.index, name="OBV"))
+ 
+         obv_all = pd.concat(obv_list).sort_index().reindex(feat.index)
+@@ -182,7 +226,7 @@ class MomentumQualityProcessor(Processor):
+         results = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            close = sub["CLOSE0"].astype(float)
++            close = _get_feat_col_single(sub, "CLOSE0").astype(float)
+             ret1 = close.pct_change(1)
+             ret20 = close.pct_change(20)
+             vol20 = ret1.rolling(20).std()
+@@ -213,7 +257,7 @@ class TailRiskProcessor(Processor):
+         results = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            close = sub["CLOSE0"].astype(float)
++            close = _get_feat_col_single(sub, "CLOSE0").astype(float)
+             ret1 = close.pct_change(1)
+             downside = ret1.clip(upper=0).rolling(20).std()
+             maxdd = (close / close.rolling(20).max() - 1.0)
+@@ -246,7 +290,7 @@ class DistributionProcessor(Processor):
+         results = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            close = sub["CLOSE0"].astype(float)
++            close = _get_feat_col_single(sub, "CLOSE0").astype(float)
+             ret1 = close.pct_change(1)
+             skew = ret1.rolling(20).skew()
+             kurt = ret1.rolling(20).kurt()
+@@ -280,9 +324,12 @@ class LiquidityProcessor(Processor):
+         results = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            close = sub["CLOSE0"].astype(float)
+-            volume = sub["VOLUME0"].astype(float)
+-            amount = sub.get("AMOUNT0", pd.Series(np.nan, index=sub.index)).astype(float)
++            close = _get_feat_col_single(sub, "CLOSE0").astype(float)
++            volume = _get_feat_col_single(sub, "VOLUME0").astype(float)
++            try:
++                amount = _get_feat_col_single(sub, "AMOUNT0").astype(float)
++            except KeyError:
++                amount = pd.Series(np.nan, index=sub.index)
+ 
+             ret1 = close.pct_change(1)
+             amihud = (ret1.abs() / amount.replace(0, np.nan)).rolling(20).mean()
+@@ -317,7 +364,7 @@ class PricePositionProcessor(Processor):
+         results = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            close = sub["CLOSE0"].astype(float)
++            close = _get_feat_col_single(sub, "CLOSE0").astype(float)
+             roll_max = close.rolling(60).max()
+             roll_min = close.rolling(60).min()
+             pos = (close - roll_min) / (roll_max - roll_min + 1e-12)
+@@ -355,9 +402,9 @@ class VolatilityStructureProcessor(Processor):
+         results = []
+         for instrument, sub in feat.groupby(level="instrument", sort=False):
+             sub = sub.sort_index()
+-            close = sub["CLOSE0"].astype(float)
+-            high = sub["HIGH0"].astype(float)
+-            low = sub["LOW0"].astype(float)
++            close = _get_feat_col_single(sub, "CLOSE0").astype(float)
++            high = _get_feat_col_single(sub, "HIGH0").astype(float)
++            low = _get_feat_col_single(sub, "LOW0").astype(float)
+ 
+             ret1 = close.pct_change(1)
+             vol5 = ret1.rolling(5).std()
+@@ -396,7 +443,7 @@ class CrossSectionalRankProcessor(Processor):
+         if "RET5" not in cols.get_level_values(-1):
+             return df
+ 
+-        ret5 = feat["RET5"]
++        ret5 = _get_feat_col(feat, "RET5", self.fields_group)
+         rank = ret5.groupby(level="datetime").rank(pct=True)
+         mean = ret5.groupby(level="datetime").transform("mean")
+         std = ret5.groupby(level="datetime").transform("std")
+@@ -429,9 +476,9 @@ class MarketLevelProcessor(Processor):
+         if not {"RET1", "RET5", "RET10"}.issubset(col_set):
+             return df
+ 
+-        ret1 = feat["RET1"]
+-        ret5 = feat["RET5"]
+-        ret10 = feat["RET10"]
++        ret1 = _get_feat_col(feat, "RET1", self.fields_group)
++        ret5 = _get_feat_col(feat, "RET5", self.fields_group)
++        ret10 = _get_feat_col(feat, "RET10", self.fields_group)
+ 
+         out = pd.DataFrame({
+             "MARKET_MOM_5": ret5.groupby(level="datetime").transform("mean"),
+@@ -472,10 +519,10 @@ class SectorLevelProcessor(Processor):
+                 df[c] = 0.0
+             return df
+ 
+-        ret1 = feat["RET1"]
+-        ret5 = feat["RET5"]
+-        ret10 = feat["RET10"]
+-        sector = feat["sector_l1"].astype(int).astype(str)
++        ret1 = _get_feat_col(feat, "RET1", self.fields_group)
++        ret5 = _get_feat_col(feat, "RET5", self.fields_group)
++        ret10 = _get_feat_col(feat, "RET10", self.fields_group)
++        sector = _get_feat_col(feat, "sector_l1", self.fields_group).astype(int).astype(str)
+ 
+         out = pd.DataFrame(index=feat.index)
+         for suffix, ret in [("5", ret5), ("10", ret10)]:
+@@ -496,4 +543,4 @@ class SectorLevelProcessor(Processor):
+         return pd.concat([df, out], axis=1)
+ 
+     def readonly(self) -> bool:
+-        return False
+\ No newline at end of file
++        return False
+diff --git a/code/src/run_all_model.py b/code/src/run_all_model.py
+index 8353e81..c7f2fe8 100644
+--- a/code/src/run_all_model.py
++++ b/code/src/run_all_model.py
+@@ -331,12 +331,10 @@ def generate_records(
+     # PortAnaRecord 需要从 record kwargs 或 task/full 配置中获取组合分析配置，
+     # 这里统一解析该配置。
+     port_config = port_kwargs.pop("config", None) or get_port_analysis_config(task, full_cfg, port_record_cfg)
+-    if port_config is None:
+-        raise KeyError(
+-            "PortAnaRecord requires a `config`. Put it in `task.port_analysis_config`, "
+-            "`port_analysis_config`, or `task.record[].kwargs.config`."
+-        )
+-    PortAnaRecord(recorder=recorder, config=port_config, **port_kwargs).generate()
++    if port_config is not None:
++        PortAnaRecord(recorder=recorder, config=port_config, **port_kwargs).generate()
++    else:
++        print("Skipping PortAnaRecord: no port_analysis_config provided.")
+ 
+     for record_cfg in task.get("record", []) or []:
+         class_name = record_class_name(record_cfg)

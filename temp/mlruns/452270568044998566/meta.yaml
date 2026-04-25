@@ -1,0 +1,8 @@
+artifact_location: file:///home/ubuntu/competition/Z2025925435/THU-BDC2026/temp/mlruns/452270568044998566
+creation_time: 1777110166644
+experiment_id: '452270568044998566'
+last_update_time: 1777110166644
+lifecycle_stage: active
+name: LightGBM
+trace_location: null
+workspace: default

@@ -1,0 +1,8 @@
+artifact_location: file:///home/ubuntu/competition/Z2025925435/THU-BDC2026/temp/mlruns/596040810344619480
+creation_time: 1777110163012
+experiment_id: '596040810344619480'
+last_update_time: 1777110163012
+lifecycle_stage: active
+name: PointwiseStockTransformer
+trace_location: null
+workspace: default
