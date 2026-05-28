@@ -143,6 +143,7 @@ def train_epoch(
     tokenizer: KronosTokenizer,
     loader: DataLoader,
     optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None,
     device: torch.device,
     grad_clip: float,
 ) -> float:
@@ -172,6 +173,8 @@ def train_epoch(
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
         optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
 
         n = batch_x.size(0)
         total_loss += loss.item() * n
@@ -248,7 +251,11 @@ def finetune(args: argparse.Namespace) -> None:
 
     # ---- Optimizer ----
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.1, betas=(0.9, 0.95))
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    total_steps = len(train_loader) * args.epochs
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer, max_lr=args.lr, total_steps=total_steps,
+        pct_start=0.03, div_factor=10, final_div_factor=1e4,
+    )
 
     # ---- Save dir ----
     save_dir = Path(args.save_dir) / f"Kronos-{args.model}"
@@ -259,9 +266,8 @@ def finetune(args: argparse.Namespace) -> None:
 
     for epoch in range(1, args.epochs + 1):
         t0 = time.time()
-        train_loss = train_epoch(model, tokenizer, train_loader, optimizer, device, args.grad_clip)
+        train_loss = train_epoch(model, tokenizer, train_loader, optimizer, scheduler, device, args.grad_clip)
         val_loss = validate(model, tokenizer, val_loader, device)
-        scheduler.step()
         elapsed = time.time() - t0
 
         print(f"Epoch {epoch:3d}/{args.epochs} | train {train_loss:.4f} | val {val_loss:.4f} | {elapsed:.0f}s")
