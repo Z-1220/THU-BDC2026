@@ -212,8 +212,6 @@ def validate(
 
 def finetune(args: argparse.Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if args.batch_size is None:
-        args.batch_size = 512 if args.model == "small" else 256
     print(f"Device: {device}")
 
     pretrained_dir = Path(args.pretrained_dir)
@@ -300,6 +298,10 @@ def main() -> None:
     parser.add_argument("--grad-clip", type=float, default=3.0)
     parser.add_argument("--early-stop", type=int, default=5)
     args = parser.parse_args()
+
+    # Set model-specific defaults before printing
+    if args.batch_size is None:
+        args.batch_size = 512 if args.model == "small" else 256
 
     print("=" * 60)
     print(f"  Kronos-{args.model} Fine-tuning")
