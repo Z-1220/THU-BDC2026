@@ -69,7 +69,7 @@ def _min_variance(scores, returns_df, top_k, risk_model, lookback, risk_free_rat
     return {c: w for c, w in ef.clean_weights().items() if w > 1e-4}
 
 
-def _risk_parity(scores, returns_df, top_k, lookback, risk_model=None, risk_free_rate=None):
+def _risk_parity(scores, returns_df, top_k, risk_model=None, lookback=60, risk_free_rate=None):
     from pypfopt import HRPOpt
 
     if returns_df is None:
