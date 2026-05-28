@@ -85,10 +85,18 @@ THU-BDC2026 比赛：学习沪深300成分股排序，输出 5 只股票及权�
 - Baostock 在线 API → `scripts/get_stock_data.py` → 保存为 `data/stock_data.csv`（量价日线）
 - `resource/行业分类.csv` → 中证四级行业编码（`sector_l1` ~ `sector_l4`）
 
+**数据切分**：
+- `data/stock_data.csv`：全量原始数据 → `scripts/split_train_test.py` 按日期切分
+- `data/train.csv`：训练数据（排除 test.csv 日期区间 2026-04-13 ~ 2026-04-17），由 `scripts/update_train_data.py` 生成
+- `data/test.csv`：**主办方盲测集，不可修改**
+
 **Qlib 二进制缓存**：`temp/qlib_data/`（`.gitignore` 已排除）
 - `scripts/convert_data.py` 将 `data/train.csv` + 行业分类转为 Qlib 二进制
-- 结构：`calendars/day.txt`（548 个交易日，2024-01-02 ~ 2026-04-10）、`instruments/all.txt`（300 只股票）、`features/<code>/*.day.bin`（每只 16 个字段：open/close/high/low/volume/amount/turn/pctchg/amplitude/change/vwap/factor + sector_l1..l4）
-- 若 `temp/qlib_data/` 不存在或过期，需运行 `sh init.sh`（即 `uv run scripts/convert_data.py`）重新生成
+- 结构：`calendars/day.txt`（573 个交易日，2024-01-02 ~ 2026-05-27）、`instruments/all.txt`（300 只股票）、`features/<code>/*.day.bin`（每只 16 个字段：open/close/high/low/volume/amount/turn/pctchg/amplitude/change/vwap/factor + sector_l1..l4）
+- `temp/qlib_data/` 为 Docker root 权限，重建需通过 Docker
+- 若 `temp/qlib_data/` 不存在或过期，运行 `sh init.sh` 重新生成
+
+**数据更新 Skill**：`.claude/skills/update-data.md` — 说"更新数据"时自动拉取 Baostock → 切分 → 重建 Qlib 二进制。一键脚本：`sh scripts/update_data.sh`
 
 **MLflow 缓存**：`temp/mlruns/`（已清空，.gitignore 排除），训练日志不保留在此
 
