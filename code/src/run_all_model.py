@@ -220,8 +220,9 @@ def get_eval_periods(
     data_end: str,
     hold_days: int = 5,
 ) -> list[dict[str, pd.Timestamp]]:
-    """提取非重叠的评测周期: signal(T) → buy(T+1) → sell(T+hold_days)
+    """提取非重叠评测周期: signal(Friday) → buy(Mon) → sell(next Fri + hold_days)
 
+    signal day 对齐到周五，与 FridayFilterProcessor 一致。
     hold_days: signal 到 sell 的交易日偏移量，默认 5（完整交易周）。
                特殊节假日缩短时设为 4。
     """
@@ -230,8 +231,16 @@ def get_eval_periods(
     td = pd.Timestamp(data_end)
     mask = (calendar >= ts) & (calendar <= te)
     days = calendar[mask]
+
+    # 找第一个周五作为起始 signal day，对齐 FridayFilterProcessor
+    first_idx = 0
+    for idx, d in enumerate(days):
+        if d.dayofweek == 4:  # Friday
+            first_idx = idx
+            break
+
     periods = []
-    i = 0
+    i = first_idx
     while i + hold_days < len(days):
         sig, buy, sell = days[i], days[i + 1], days[i + hold_days]
         if sell > td:

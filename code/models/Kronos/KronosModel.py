@@ -170,9 +170,14 @@ class KronosModel(Model):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get the index we need to predict for (Friday signal dates only,
-        # after FridayFilterProcessor)
+        # after FridayFilterProcessor).
+        # DatasetH.prepare returns DataFrame (.index), TSDatasetH returns
+        # TSDataSampler (.get_index()). Handle both.
         test_ds = dataset.prepare(segment, col_set=["feature", "label"], data_key="infer")
-        index = test_ds.get_index()
+        if hasattr(test_ds, "get_index"):
+            index = test_ds.get_index()
+        else:
+            index = test_ds.index
 
         if len(index) == 0:
             self.logger.warning("Empty test index — returning empty Series.")
@@ -199,6 +204,13 @@ class KronosModel(Model):
     # ------------------------------------------------------------------
     # Core inference
     # ------------------------------------------------------------------
+    @staticmethod
+    def _csv_code(qlib_instrument: str) -> str:
+        """Convert Qlib instrument code (SH600000) to CSV code (600000)."""
+        if qlib_instrument.startswith(("SH", "SZ")):
+            return qlib_instrument[2:]
+        return qlib_instrument
+
     def _predict_signal_date(
         self, signal_date: pd.Timestamp, instruments: list[str]
     ) -> pd.Series:
@@ -216,35 +228,39 @@ class KronosModel(Model):
         if len(future_dates) < self.pred_len:
             self.logger.warning(
                 f"Only {len(future_dates)} future dates available at {signal_date.date()}, "
-                f"expected {self.pred_len}. Skipping."
+                f"expected {self.pred_len}. Using available dates."
             )
-            return pd.Series(
-                [0.0] * len(instruments),
-                index=pd.MultiIndex.from_tuples(
-                    [(signal_date, inst) for inst in instruments],
-                    names=["datetime", "instrument"],
-                ),
-                name="score",
-            )
-
-        y_timestamps = pd.DatetimeIndex(future_dates)
-        y_stamp_df = _make_timestamps(y_timestamps)
+            if len(future_dates) == 0:
+                return pd.Series(
+                    [0.0] * len(instruments),
+                    index=pd.MultiIndex.from_tuples(
+                        [(signal_date, inst) for inst in instruments],
+                        names=["datetime", "instrument"],
+                    ),
+                    name="score",
+                )
+            # Use fewer prediction days if data is still sufficient
+            actual_pred_len = len(future_dates)
+        else:
+            actual_pred_len = self.pred_len
 
         x_dfs: list[pd.DataFrame] = []
-        x_stamps: list[pd.DataFrame] = []
-        y_stamps: list[pd.DataFrame] = []
+        x_ts_list: list[pd.Series] = []
         valid_instruments: list[str] = []
 
+        y_timestamps = pd.DatetimeIndex(future_dates[:actual_pred_len])
+
         for inst in instruments:
-            inst_hist = hist[hist["code"] == inst].sort_values("日期")
+            csv_code = self._csv_code(inst)
+            inst_hist = hist[hist["code"] == csv_code].sort_values("日期")
             if len(inst_hist) < 60:  # need reasonable history
                 continue
 
             # Take last max_context days
             inst_hist = inst_hist.tail(self.max_context)
-            x_dfs.append(inst_hist[required_cols])
-            x_stamps.append(_make_timestamps(pd.DatetimeIndex(inst_hist["日期"])))
-            y_stamps.append(y_stamp_df.copy())
+            x_df = inst_hist[required_cols].ffill().bfill()
+            x_dfs.append(x_df)
+            x_ts_list.append(inst_hist["日期"])
             valid_instruments.append(inst)
 
         if not valid_instruments:
@@ -252,22 +268,31 @@ class KronosModel(Model):
                 [], index=pd.MultiIndex.from_tuples([], names=["datetime", "instrument"]), name="score", dtype=float
             )
 
-        # Use predict_batch for efficiency
-        pred_dfs = self._predictor.predict_batch(
-            df_list=x_dfs,
-            x_timestamp_list=[s.index for s in x_stamps],
-            y_timestamp_list=[y_stamp_df.index for _ in valid_instruments],
-            pred_len=self.pred_len,
-            T=self.T,
-            top_k=0,
-            top_p=self.top_p,
-            sample_count=self.sample_count,
-            verbose=False,
-        )
+        # Use individual predict() to avoid equal-length constraint of predict_batch
+        pred_dfs = []
+        for i in range(len(x_dfs)):
+            try:
+                pdf = self._predictor.predict(
+                    df=x_dfs[i],
+                    x_timestamp=x_ts_list[i],
+                    y_timestamp=pd.Series(y_timestamps),
+                    pred_len=actual_pred_len,
+                    T=self.T,
+                    top_k=0,
+                    top_p=self.top_p,
+                    sample_count=self.sample_count,
+                    verbose=False,
+                )
+                pred_dfs.append(pdf)
+            except Exception:
+                pred_dfs.append(None)
 
         # Compute scores: predicted close return over the forecast horizon
         scores = []
         for i, inst in enumerate(valid_instruments):
+            if pred_dfs[i] is None:
+                scores.append(0.0)
+                continue
             last_close = x_dfs[i]["close"].iloc[-1]
             pred_close = pred_dfs[i]["close"].iloc[-1]
             score = (pred_close - last_close) / (last_close + 1e-12)
