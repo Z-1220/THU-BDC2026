@@ -320,4 +320,5 @@ __marimo__/
 .streamlit/secrets.toml
 /doc/
 temp/qlib_data/
+output/run_all_model/
 .idea/
