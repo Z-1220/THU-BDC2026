@@ -218,8 +218,13 @@ def get_eval_periods(
     test_start: str,
     test_end: str,
     data_end: str,
+    hold_days: int = 5,
 ) -> list[dict[str, pd.Timestamp]]:
-    """提取非重叠的 5 交易日评测周期: signal(T) → buy(T+1) → sell(T+5)"""
+    """提取非重叠的评测周期: signal(T) → buy(T+1) → sell(T+hold_days)
+
+    hold_days: signal 到 sell 的交易日偏移量，默认 5（完整交易周）。
+               特殊节假日缩短时设为 4。
+    """
     ts = pd.Timestamp(test_start)
     te = pd.Timestamp(test_end)
     td = pd.Timestamp(data_end)
@@ -227,12 +232,12 @@ def get_eval_periods(
     days = calendar[mask]
     periods = []
     i = 0
-    while i + 5 < len(days):
-        sig, buy, sell = days[i], days[i + 1], days[i + 5]
+    while i + hold_days < len(days):
+        sig, buy, sell = days[i], days[i + 1], days[i + hold_days]
         if sell > td:
             break
         periods.append({"signal_day": sig, "buy_day": buy, "sell_day": sell})
-        i += 5
+        i += hold_days
     return periods
 
 
@@ -304,13 +309,14 @@ def evaluate_config(task_cfg: dict, eval_cfg: dict) -> dict:
         print("        ✅ Price data injected into strategy")
 
     # ── 6) 提取评测周期 ──
-    periods = get_eval_periods(cal, test_start, test_end, data_end)
+    hold_days = eval_cfg.get("hold_days", 5)
+    periods = get_eval_periods(cal, test_start, test_end, data_end, hold_days=hold_days)
     if not periods:
         return {
             "metrics": {"n_weeks": 0}, "weekly_details": [],
             "error": "no_complete_weeks",
         }
-    print(f"        {len(periods)} evaluation periods: "
+    print(f"        {len(periods)} evaluation periods (hold={hold_days}d): "
           f"{periods[0]['signal_day'].date()} → {periods[-1]['sell_day'].date()}")
 
     # ── 7) 逐周评测 ──
@@ -391,15 +397,35 @@ def _calc_metrics(returns: pd.Series) -> dict:
     n = len(returns)
     if n == 0:
         return {"n_weeks": 0}
-    m, s = returns.mean(), returns.std()
+    m, s = returns.mean(), returns.std(ddof=0)
+    pos = returns[returns > 0]
+    neg = returns[returns < 0]
+    downside = returns[returns < 0].std(ddof=0)
+    cum = (1 + returns).cumprod()
+    dd = (cum / cum.cummax() - 1).min()
+    sorted_ret = returns.sort_values()
+    worst_n = sorted_ret.head(min(3, n)).mean()
+    best_n = sorted_ret.tail(min(3, n)).mean()
     return {
         "n_weeks": n,
         "mean_weekly_return": round(float(m), 6),
         "std_weekly_return": round(float(s), 6),
         "weekly_sharpe": round(float(m / s), 4) if s > 0 else 0.0,
+        "sortino": round(float(m / downside), 4) if downside and downside > 0 else 0.0,
         "win_rate": round(float((returns > 0).mean()), 4),
         "max_weekly_loss": round(float(returns.min()), 6),
-        "cumulative_return": round(float((1 + returns).prod() - 1), 6),
+        "max_weekly_gain": round(float(returns.max()), 6),
+        "cumulative_return": round(float(cum.iloc[-1] - 1), 6) if len(cum) > 0 else 0.0,
+        "max_drawdown": round(float(dd), 6),
+        "median_return": round(float(returns.median()), 6),
+        "worst_3_avg": round(float(worst_n), 6),
+        "best_3_avg": round(float(best_n), 6),
+        "avg_gain": round(float(pos.mean()), 6) if len(pos) > 0 else 0.0,
+        "avg_loss": round(float(neg.mean()), 6) if len(neg) > 0 else 0.0,
+        "gain_loss_ratio": round(float(pos.mean() / abs(neg.mean())), 4)
+        if len(pos) > 0 and len(neg) > 0 and neg.mean() != 0 else 0.0,
+        "pos_weeks": int(len(pos)),
+        "neg_weeks": int(len(neg)),
     }
 
 
@@ -408,25 +434,55 @@ def _calc_metrics(returns: pd.Series) -> dict:
 # ============================================================
 
 def render_summary(rows: list[dict]) -> str:
-    h = ("| Model | Weeks | Mean Ret | Std | Sharpe | Win Rate | "
-         "Max Loss | Cum Ret | Error |\n"
-         "|-------|------:|---------:|----:|-------:|---------:|"
-         "---------:|--------:|-------|\n")
-    b = []
+    lines = []
+    # ── 主表：收益与风险 ──
+    lines.append("## 收益与风险")
+    lines.append("")
+    h1 = ("| Model | Weeks | Mean | Std | Sharpe | Sortino | Win% | "
+          "Cum Ret | MaxDD |\n"
+          "|-------|------:|-----:|----:|-------:|--------:|-----:|"
+          "--------:|------:|\n")
+    lines.append(h1)
     for r in rows:
         m = r["metrics"]
-        b.append(
+        lines.append(
             f"| {r['model_name']} "
             f"| {m.get('n_weeks', 0)} "
             f"| {m.get('mean_weekly_return', 0):+.4f} "
             f"| {m.get('std_weekly_return', 0):.4f} "
             f"| {m.get('weekly_sharpe', 0):.4f} "
-            f"| {m.get('win_rate', 0):.2%} "
-            f"| {m.get('max_weekly_loss', 0):+.4f} "
+            f"| {m.get('sortino', 0):.4f} "
+            f"| {m.get('win_rate', 0):.1%} "
             f"| {m.get('cumulative_return', 0):+.4f} "
-            f"| {r.get('error', '') or ''} |"
+            f"| {m.get('max_drawdown', 0):+.4f} |"
         )
-    return h + "\n".join(b) + "\n"
+    # ── 分布表：极端值与盈亏比 ──
+    lines.append("")
+    lines.append("## 收益分布")
+    lines.append("")
+    h2 = ("| Model | Median | Worst3Avg | Best3Avg | AvgGain | AvgLoss | "
+          "G/L Ratio | Gain:Neg |\n"
+          "|-------|-------:|----------:|---------:|--------:|--------:|"
+          "----------:|---------:|\n")
+    lines.append(h2)
+    for r in rows:
+        m = r["metrics"]
+        gain_neg = f"{m.get('pos_weeks', 0)}:{m.get('neg_weeks', 0)}"
+        lines.append(
+            f"| {r['model_name']} "
+            f"| {m.get('median_return', 0):+.4f} "
+            f"| {m.get('worst_3_avg', 0):+.4f} "
+            f"| {m.get('best_3_avg', 0):+.4f} "
+            f"| {m.get('avg_gain', 0):+.4f} "
+            f"| {m.get('avg_loss', 0):+.4f} "
+            f"| {m.get('gain_loss_ratio', 0):.2f} "
+            f"| {gain_neg} |"
+        )
+    # ── 错误 ──
+    for r in rows:
+        if r.get("error"):
+            lines.append(f"\n⚠️ {r['model_name']}: {r['error']}")
+    return "\n".join(lines) + "\n"
 
 
 # ============================================================
@@ -491,12 +547,14 @@ class ModelRunner:
             m = result["metrics"]
             print(f"  ✅ Weeks: {m.get('n_weeks', 0)}")
             if m.get("n_weeks", 0) > 0:
-                print(f"     Mean Return : {m['mean_weekly_return']:+.4f}")
-                print(f"     Std Return  : {m['std_weekly_return']:.4f}")
-                print(f"     Sharpe      : {m['weekly_sharpe']:.4f}")
-                print(f"     Win Rate    : {m['win_rate']:.2%}")
-                print(f"     Max Loss    : {m['max_weekly_loss']:+.4f}")
-                print(f"     Cum Return  : {m['cumulative_return']:+.4f}")
+                print(f"     Mean / Median: {m['mean_weekly_return']:+.4f} / {m['median_return']:+.4f}")
+                print(f"     Std / MaxDD  : {m['std_weekly_return']:.4f} / {m['max_drawdown']:+.4f}")
+                print(f"     Sharpe/Sortino: {m['weekly_sharpe']:.4f} / {m['sortino']:.4f}")
+                print(f"     Win Rate     : {m['win_rate']:.1%}  ({m.get('pos_weeks', 0)}W+ / {m.get('neg_weeks', 0)}W-)")
+                print(f"     G/L Ratio    : {m['gain_loss_ratio']:.2f}  "
+                      f"(Gain {m['avg_gain']:+.4f} / Loss {m['avg_loss']:+.4f})")
+                print(f"     Worst3 / Best3: {m['worst_3_avg']:+.4f} / {m['best_3_avg']:+.4f}")
+                print(f"     Cum Return   : {m['cumulative_return']:+.4f}")
 
             # 每周明细
             for d in result.get("weekly_details", []):

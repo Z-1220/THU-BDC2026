@@ -1,3 +1,7 @@
+# ============================================================
+# Phase 1 榜单评测配置 (2026-04-27 ~ 2026-04-30, T+4)
+# 五一假期导致持有期从 T+5 缩短为 T+4
+# ============================================================
 qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn
@@ -20,7 +24,6 @@ task:
       loss: "mse"
       seed: 42
 
-  # ── 修复2: 补上 strategy（run_all_model.py 必读） ──
   strategy:
     class: PyPortfolioOptStrategy
     module_path: "code.PortfolioBuilder.portfolio_strategy"
@@ -41,11 +44,10 @@ task:
         kwargs:
           instruments: "all"
           start_time: "2024-01-01"
-          end_time: "2026-05-27"
+          end_time: "2026-04-24"               # Phase 1 盲测之前
           fit_start_time: "2024-01-01"
-          fit_end_time: "2025-12-31"          # ← 修复1: 严格在 test 之前
+          fit_end_time: "2026-03-31"            # 训练参数只学到 3 月底
           infer_processors:
-            # ---- 自定义因子 Processor ----
             - class: MomentumProcessor
               module_path: "code.processors.custom_processor"
             - class: VolatilityProcessor
@@ -73,8 +75,6 @@ task:
             # 仅保留周五样本，对齐 Mon-Fri 完整周评测
             - class: FridayFilterProcessor
               module_path: "code.processors.custom_processor"
-            # ---- 标准化 + 填充 ----
-            # ← 修复4: 补上 module_path
             - class: RobustZScoreNorm
               module_path: "qlib.data.dataset.processor"
               kwargs:
@@ -89,13 +89,13 @@ task:
               module_path: "qlib.data.dataset.processor"
 
       segments:
-        train: ["2024-01-01", "2025-12-31"]
-        valid: ["2026-01-05", "2026-01-30"]
-        test:  ["2026-02-02", "2026-05-27"]
+        train: ["2024-01-01", "2026-03-31"]
+        valid: ["2026-04-01", "2026-04-17"]
+        test:  ["2026-04-20", "2026-04-24"]    # 含 4/24 (周五) 信号日
       step_len: 60
       fillna_type: "ffill+bfill"
 
-  # ── 修复3: 补上 evaluation（run_all_model.py 必读） ──
   evaluation:
     universe: "all"
-    data_end: "2026-05-27"
+    data_end: "2026-04-30"
+    hold_days: 4                                # T+4：五一假期缩短
