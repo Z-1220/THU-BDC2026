@@ -172,6 +172,26 @@ task:
 - `__init__` 的参数名必须与 YAML kwargs 一致
 - `predict` 返回的 pd.Series index 必须是 (datetime, instrument) MultiIndex
 
+## 自定义 Model：Kronos（零样本推理）
+
+Kronos 是清华开源的金融 K 线基础模型，decoder-only Transformer，在 45+ 全球交易所 120 亿条 OHLCV 数据上预训练。通过 KronosTokenizer 将 OHLCV 量化为离散 token，然后自回归生成未来 K 线序列。
+
+**文件**：[code/models/Kronos/](code/models/Kronos/)：
+- `KronosModel.py`：Qlib Model 封装，`fit()` 为 no-op（冻结预训练权重），`predict()` 使用 KronosPredictor 自回归生成未来 OHLCV 并转为排序分数。绕过 TSDatasetH，直接从 `data/stock_data.csv` 读取 OHLCV
+- [kronos_src/](code/models/Kronos/kronos_src/)：vendored Kronos 源码（导入修复为相对导入）
+
+**预训练权重**：
+- `Kronos-small` (24.7M) 和 `Kronos-base` (102.3M)，均使用 `Kronos-Tokenizer-base`，上下文 512
+- 下载脚本：`python scripts/download_kronos_models.py` → `model/kronos_pretrained/`（已 gitignore）
+- 支持 HF 镜像：`HF_ENDPOINT=https://hf-mirror.com python scripts/download_kronos_models.py`
+- 加载时使用 `local_files_only=True`，训练过程无需联网
+
+**运行**：
+```bash
+python code/src/run_all_model.py run \
+  --yaml_paths="models/Kronos/Kronos-small.yaml,models/Kronos/Kronos-base.yaml"
+```
+
 ## 组合优化策略（code/PortfolioBuilder/portfolio_strategy.py）
 
 `PyPortfolioOptStrategy`：独立类（不依赖 Qlib backtest 框架），通过 `set_price_data(close_df)` 注入价格数据。

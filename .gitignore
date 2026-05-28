@@ -321,4 +321,5 @@ __marimo__/
 /doc/
 temp/qlib_data/
 output/run_all_model/
+model/kronos_pretrained/
 .idea/

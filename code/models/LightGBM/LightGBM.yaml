@@ -21,7 +21,7 @@ task:
       class: PyPortfolioOptStrategy
       module_path: "code.PortfolioBuilder.portfolio_strategy"
       kwargs:
-        optimizer: "mean_variance"
+        optimizer: "risk_parity"
         top_k: 5
         risk_model: "ledoit_wolf"
         lookback: 60
