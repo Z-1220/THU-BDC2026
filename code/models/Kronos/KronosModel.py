@@ -57,6 +57,7 @@ class KronosModel(Model):
         self,
         model_name: str = "small",
         pretrained_dir: str = "./model/kronos_pretrained",
+        finetuned_dir: str | None = None,
         max_context: int = 512,
         pred_len: int = 5,
         device: str | None = None,
@@ -71,6 +72,9 @@ class KronosModel(Model):
             model_name: "small" or "base".
             pretrained_dir: local directory containing Kronos-Tokenizer-base/,
                             Kronos-small/, Kronos-base/.
+            finetuned_dir: optional directory with fine-tuned model weights.
+                           If provided, loads Kronos from here instead of
+                           pretrained_dir. Tokenizer still from pretrained_dir.
             max_context: max historical tokens for Kronos (512 for small/base).
             pred_len: number of future days to predict (default 5 for 1-week).
             device: torch device string (auto-detect if None).
@@ -82,6 +86,7 @@ class KronosModel(Model):
         self.logger = get_module_logger("KronosModel")
         self.model_name = model_name
         self.pretrained_dir = Path(pretrained_dir)
+        self.finetuned_dir = Path(finetuned_dir) if finetuned_dir else None
         self.max_context = max_context
         self.pred_len = pred_len
         self.T = T
@@ -106,8 +111,13 @@ class KronosModel(Model):
     # Model loading
     # ------------------------------------------------------------------
     def _load_model(self) -> None:
-        model_dir = self.pretrained_dir / f"Kronos-{self.model_name}"
         tokenizer_dir = self.pretrained_dir / "Kronos-Tokenizer-base"
+        if self.finetuned_dir is not None:
+            model_dir = self.finetuned_dir
+            self.logger.info(f"Loading fine-tuned Kronos-{self.model_name} from {model_dir}")
+        else:
+            model_dir = self.pretrained_dir / f"Kronos-{self.model_name}"
+            self.logger.info(f"Loading Kronos-{self.model_name} from {model_dir}")
 
         if not model_dir.exists():
             raise FileNotFoundError(

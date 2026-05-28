@@ -1,0 +1,62 @@
+# ============================================================
+# Kronos-base 微调版 — 在 A 股数据上微调 Predictor
+# ============================================================
+qlib_init:
+  provider_uri: "./temp/qlib_data"
+  region: cn
+
+task:
+  model:
+    class: KronosModel
+    module_path: "code.models.Kronos.KronosModel"
+    kwargs:
+      model_name: "base"
+      pretrained_dir: "./model/kronos_pretrained"
+      finetuned_dir: "./model/kronos_finetuned/Kronos-base"
+      max_context: 512
+      pred_len: 5
+      T: 1.0
+      top_p: 0.9
+      sample_count: 1
+      seed: 42
+
+  strategy:
+      class: PyPortfolioOptStrategy
+      module_path: "code.PortfolioBuilder.portfolio_strategy"
+      kwargs:
+        optimizer: "risk_parity"
+        top_k: 5
+        lookback: 60
+        risk_free_rate: 0.02
+
+  dataset:
+    class: DatasetH
+    module_path: qlib.data.dataset
+    kwargs:
+      handler:
+        class: StockDataHandler
+        module_path: "code.handlers.stock_handler"
+        kwargs:
+          instruments: "all"
+          start_time: "2024-01-01"
+          end_time: "2026-05-27"
+          fit_start_time: "2024-01-01"
+          fit_end_time: "2025-12-31"
+          infer_processors:
+            - class: FridayFilterProcessor
+              module_path: "code.processors.custom_processor"
+            - class: Fillna
+              module_path: "qlib.data.dataset.processor"
+              kwargs:
+                fields_group: "feature"
+          learn_processors:
+            - class: DropnaLabel
+              module_path: "qlib.data.dataset.processor"
+      segments:
+        train: ["2024-01-01", "2025-12-31"]
+        valid: ["2026-01-05", "2026-01-30"]
+        test:  ["2026-02-02", "2026-05-27"]
+
+  evaluation:
+    universe: "all"
+    data_end: "2026-05-27"
