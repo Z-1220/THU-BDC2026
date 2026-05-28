@@ -1,8 +1,0 @@
-artifact_location: file:///home/ubuntu/competition/Z2025925435/THU-BDC2026/temp/mlruns/119077747112299325
-creation_time: 1777111090136
-experiment_id: '119077747112299325'
-last_update_time: 1777111090136
-lifecycle_stage: active
-name: workflow
-trace_location: null
-workspace: default
