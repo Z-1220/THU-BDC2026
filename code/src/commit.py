@@ -84,8 +84,9 @@ def build_model(cfg: dict[str, Any]) -> Any:
             print("[test] 已加载预训练模型 (via load_state_dict)")
         else:
             warnings.warn("无法注入权重，模型将使用随机初始化，请确认已运行 train.py")
-        device = model.device if hasattr(model, "device") else torch.device("cpu")
-        model.to(device)
+        if hasattr(model, "to"):
+            device = model.device if hasattr(model, "device") else torch.device("cpu")
+            model.to(device)
     else:
         # 降级方案：从配置新建模型并训练（通常不会在比赛流程中触发）
         warnings.warn("未找到预训练模型，将从头训练，可能超时。请先运行 train.sh")
@@ -117,44 +118,23 @@ def generate_scores(model: Any, dataset: Any) -> pd.Series:
 
 
 def optimize_portfolio(scores: pd.Series, config: dict[str, Any]) -> dict[str, float]:
-    """根据配置中的 portfolio 字段执行组合优化。"""
-    port_cfg = config.get("portfolio", {})
-    optimizer_name = port_cfg.get("optimizer", "equal")
+    """根据 YAML 中的 task.strategy 字段执行组合优化。
+
+    注意：推理阶段无历史价格数据，PyPortfolioOpt 优化器不可用，
+    自动降级为分数最高的 top-k 等权。
+    """
+    port_cfg = config.get("task", {}).get("strategy", {})
     top_k = port_cfg.get("top_k", 5)
-    params = port_cfg.get("params", {})
+    optimizer_name = port_cfg.get("optimizer", "equal")
 
-    # 简单策略直接处理
-    if optimizer_name == "equal" or optimizer_name not in (
-        "mean_variance", "min_variance", "risk_parity"
-    ):
-        top = scores.nlargest(top_k)
-        w = 1.0 / len(top)
-        return {c: float(w) for c in top.index}
+    if optimizer_name in ("mean_variance", "min_variance", "risk_parity"):
+        warnings.warn(
+            f"推理阶段不支持 '{optimizer_name}' 优化器（缺少历史价格数据），降级为等权"
+        )
 
-    # 复杂优化（需要 PyPortfolioOpt）
-    try:
-        from code.PortfolioBuilder.portfolio_strategy import PyPortfolioOptStrategy
-    except ImportError:
-        warnings.warn("PyPortfolioOpt 不可用，自动降级为等权")
-        top = scores.nlargest(top_k)
-        w = 1.0 / len(top)
-        return {c: float(w) for c in top.index}
-
-    current = pd.Series(dtype=float)
-    trade_date = pd.Timestamp.today()
-    strategy = PyPortfolioOptStrategy(
-        optimizer=optimizer_name,
-        top_k=top_k,
-        **params,
-    )
-    weights = strategy.generate_target_weight_position(
-        score=scores, current=current, trade_date=trade_date
-    )
-    # 约束权重和
-    total = sum(weights.values())
-    if total > 1.0:
-        weights = {k: v / total for k, v in weights.items()}
-    return weights
+    top = scores.nlargest(top_k)
+    w = 1.0 / len(top)
+    return {c: float(w) for c in top.index}
 
 
 def save_result(weights: dict[str, float], output_path: Path) -> None:

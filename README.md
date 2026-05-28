@@ -1,212 +1,129 @@
 # THU-BigDataCompetition-2026-baseline
 
-本项目是一个面向沪深300成分股的**排序学习选股**方案：
-- 输入：每只股票过去一段时间（默认60个交易日）的量价与技术特征序列；
-- 模型：`StockTransformer`，同时建模单股票时序模式与股票间交互；
-- 输出：对同一天全部候选股票打分并排序，最终输出前5只股票（等权重0.2）。
+本项目是一个面向沪深300成分股的**学习排序选股**方案，基于 Qlib 框架，全流程 YAML 驱动：
+- 输入：每只股票过去 60 个交易日的量价与技术特征序列（Alpha158 + 自定义因子）；
+- 模型：`PointwiseStockTransformer`（PyTorch Transformer 回归），以及 LightGBM 等对比模型；
+- 输出：预测分数最高的 5 只股票及其权重（权重和 ≤ 1），5 日持有期。
 
 ---
 
 ## 1. 项目目标与整体流程
 
-核心目标是学习“当天应优先持有哪些股票”的排序函数，而不是单只股票二分类。
+核心目标是学习"未来 5 日哪些股票的开盘收益率最高"的排序函数。
 
-训练与推理主流程如下：
-1. 读取历史行情数据（`data/stock_data.csv`）；
-2. 做特征工程（39特征或`158+39`特征）；
-3. 构建标签：未来收益率（代码中为 `open_t1` 到 `open_t5` 的相对收益）；
-4. 按“日期”组织排序样本：每个样本是一日内多只股票的序列与目标；
-5. 训练排序模型，监控 `final_score` 并保存最优权重；
-6. 使用训练好的 `best_model.pth` + `scaler.pkl` 在最新日期上生成Top5选股结果。
+训练与推理主流程：
+1. `scripts/convert_data.py` 将 `data/train.csv` + `resource/行业分类.csv` 转为 Qlib 二进制数据（`temp/qlib_data/`）；
+2. `StockDataHandler`（继承 Alpha158）通过 Qlib 表达式引擎计算基础特征和标签；
+3. YAML 配置的 Processor 链注入额外技术指标（MACD/RSI/ATR 等 12 类）；
+4. `DatasetH`（表格模型）或 `TSDatasetH`（序列模型）组织训练/验证/测试样本；
+5. 训练模型，监控验证集 loss，early stop 保存最优权重到 `model/result_model.pth`；
+6. `commit.py` 加载最优模型在最新日期上推理，输出 `output/result.csv`。
+
+标签定义：`LABEL0 = (Ref($open, -5) - Ref($open, -1)) / (Ref($open, -1) + 1e-12)`，即未来第 5 个交易日开盘相对未来第 1 个交易日开盘的收益率。
 
 ---
 
 ## 2. 代码结构说明
-### [get_stock_data.py](get_stock_data.py)
-数据抓取脚本（Baostock）：
-- 获取沪深300成分股；
-- 抓取历史日线数据并保存为训练所需格式。
-- 训练数据保存为`data/stock_data.csv`
-- 最新的沪深300股票代码和名称数据保存在`data/hs300_stock_list.csv`
 
-### [split_train_test.py](split_train_test.py)
-数据分割脚本，按日期区间将股票数据切分为训练集和测试集。
-- 训练集为`data/train.csv`
-- 测试集为`data/test.csv`
+```
+code/
+├── handlers/stock_handler.py         # 自定义 DataHandler，继承 Alpha158，追加额外表达式特征
+├── processors/custom_processor.py    # 12 个自定义 Processor（动量/波动/流动性/横截面/行业等）
+├── models/
+│   ├── PointwiseStockTransformer/    # PyTorch Transformer 回归模型 (.py + .yaml)
+│   └── LightGBM/                     # LightGBM 表格模型 (.yaml，使用 Qlib 内置 LGBModel)
+├── PortfolioBuilder/
+│   └── portfolio_strategy.py         # 组合优化策略（均值方差/最小方差/风险平价）
+└── src/
+    ├── train.py                      # 训练入口：读 model/result_model.yaml → 训练 → 保存权重
+    ├── commit.py                     # 推理入口：加载模型 → 预测 → output/result.csv
+    └── run_all_model.py              # 调参评测引擎：单次训练 + 多周非重叠周期回测
 
-### [config.py](code/src/config.py)
-统一管理训练与推理参数，包括：
-- 序列长度 `sequence_length`（默认60）；
-- 模型超参数（`d_model`、`nhead`、`num_layers` 等）；
-- 训练超参数（`batch_size`、`num_epochs`、`learning_rate`）；
-- 排序损失权重参数（`pairwise_weight`、`top5_weight`、`base_weight`）；
-- 数据路径和输出路径（默认输出到 `output/`）。
+scripts/
+├── get_stock_data.py                 # Baostock 数据抓取 → data/stock_data.csv
+├── split_train_test.py               # 按日期切分训练/测试集 → data/train.csv, data/test.csv
+└── convert_data.py                   # CSV + 行业分类 → Qlib 二进制 (temp/qlib_data/)
 
-### [utils.py](code/src/utils.py)
-包含特征工程与数据集构建逻辑：
-- `engineer_features_39()`：39个技术指标特征；
-- `engineer_features()`：158个Alpha类特征；
-- `engineer_features_158plus39()`：合并 `158 + 39` 特征；
-- `create_ranking_dataset_vectorized()`：向量化构建按日排序样本（训练核心加速点）。
+test/
+├── score_self.py                     # 自评：将 output/result.csv 与 data/test.csv 对比
+├── test.py                           # 批量 Docker 评分
+└── score_docker.py                   # Docker 单次评分
+```
 
-说明：特征工程使用了 `TA-Lib`，若未正确安装会报错。
+**训练产物**：
+- `model/result_model.pth`：最优模型权重
+- `model/config_snapshot.yaml`：训练配置快照
 
-### [model.py](code/src/model.py)
-定义核心模型 `StockTransformer`，主要由以下模块组成：
-- `PositionalEncoding`：时序位置编码；
-- 时序编码器 `TransformerEncoder`：提取单股票历史序列表示；
-- `FeatureAttention`：对时间维特征做注意力聚合；
-- `CrossStockAttention`：在同一交易日内建模股票间关系；
-- `ranking_layers` + `score_head`：输出每只股票的排序分数。
-
-输入形状：`[batch, num_stocks, seq_len, feature_dim]`  
-输出形状：`[batch, num_stocks]`。
-
-### [train.py](code/src/train.py)
-训练主脚本，关键内容：
-- 数据预处理：
-	- `_preprocess_common()`：按股票分组并行特征工程、股票ID映射、标签构建；
-	- `split_train_val_by_last_month()`：按最后阶段数据切分训练/验证集，并保留序列上下文。
-- 数据集组织：
-	- `RankingDataset` + `collate_fn`：处理每日股票数量不一致问题（padding + mask）。
-- 损失函数：`WeightedRankingLoss`
-	- 组合了 `listwise_loss` 与 `pairwise_loss`；
-	- 对真实Top-k样本施加更高权重。
-- 评估指标：`calculate_ranking_metrics()`
-	- 计算 `pred_return_sum`、`max_return_sum`、`ratio_pred`、`final_score` 等；
-	- 训练过程中以验证集 `final_score` 选择最优模型。
-
-训练产物：
-- `best_model.pth`：最佳模型参数；
-- `scaler.pkl`：标准化器；
-- `config.json`：训练时配置快照；
-- `final_score.txt`：最佳分数记录；
-- `log/`：TensorBoard日志。
-
-### [predict.py](code/src/predict.py)
-推理主脚本，流程：
-1. 加载历史数据，取最新交易日；
-2. 执行与训练一致的特征工程；
-3. 加载 `scaler.pkl` 进行特征标准化；
-4. 用 `best_model.pth` 对全部可预测股票打分；
-5. 按分数降序取前5只，输出到 `output.csv`：
-	 - `stock_id`
-	 - `weight`（固定 `0.2`）
-
-### [check_backtest_data.py](code/src/check_backtest_data.py)
-数据完整性诊断脚本，用于在执行回测前校验 `train.csv` 是否满足 `StockTransformer` 回测所需的数据条件，提前识别潜在问题。
-
-检查项目：  
-1. 基础信息  
-   - 文件存在性、总行数、股票数量、日期范围、必需列（`开盘`、`股票代码`、`日期`）完整性。
-2. 空值与零值检查  
-   - 统计 `开盘`、`open_t1`、`open_t5` 的缺失数量。  
-   - 检测价格为 0 的行数，避免收益计算出现除零或无穷大。
-3. 尾部数据可用性  
-   - 展示最后 10 个交易日 `open_t1` / `open_t5` 缺失比例，用于判断回测尾部截断是否合理。
-4. 停牌与连续性检查  
-   - 统计相邻交易日间隔超过 5 天的次数，并给出示例，提示停牌对未来价格计算的影响。
-5. 特征列与配置兼容性  
-   - 列出 `raw_df` 中实际可用的特征列，供与 `config['feature_num']` 对照。
-6. 回测调仓模拟  
-   - 基于 `sequence_length` 和 5 日调仓间隔，预估调仓次数与日期范围。  
-   - 检查每个调仓日有效股票数（`open_t1`、`open_t5` 均非空）是否不少于 5 只，并报告不足日期。  
-
-输出：  
-- 控制台打印各项检查结果，标注 `[通过]`、`[警告]` 或 `[错误]`，便于快速定位数据问题。
-
-
-### [backtest.py](code/src/backtest.py)
-回测主脚本，用于在历史数据上滚动评估 `StockTransformer` 模型的策略表现，并与理论最优单股票收益进行对比。
-
-计算回测绩效指标，返回字典包含：
-  - 总调仓次数
-  - 最终累计收益率
-  - 最大回撤
-  - 胜率
-  - 盈亏比
-  - 平均单期收益
-
-流程：
-1. 加载数据与模型 
-   - 读取原始数据 `data/train.csv`，完成股票代码标准化与日期排序。  
-   - 预计算未来价格列 `open_t1`、`open_t5`。  
-   - 加载训练阶段保存的 `best_model.pth` 与 `scaler.pkl`，初始化 `StockTransformer` 模型并切换到评估模式。
-
-2. 数据预处理  
-   - 调用 `preprocess_predict_data` 生成特征集，并提取 `raw_prices` 用于后续收益计算。  
-   - 使用 `scaler` 对特征进行标准化。
-
-3. 生成回测日期序列  
-   - 基于全部交易日与 `config['sequence_length']` 确定调仓起始点。  
-   - 以每 5 个交易日为间隔生成调仓日期，并剔除未来数据不足（少于 5 日）的尾部日期。
-
-4. 滚动回测计算  
-   - Baseline 策略收益：  
-     对每个调仓日，调用 `build_inference_sequences` 构建序列输入，模型输出股票分数，
-     选取分数最高的前 5 只股票，以等权重计算该调仓期的 5 日收益率（基于 `open_t1` 与 `open_t5` 价格）。
-   - 理论最优收益：  
-     对每个有效调仓日，计算当日所有股票的未来 5 日收益率，取最大值或 0 作为理论最优单期收益。
-
-依赖文件（训练产物）：  
-- `output/best_model.pth`  
-- `output/scaler.pkl`
-
-输出产物（保存在 `config['output_dir']/` 下）：
-- `backtest_comparison.csv`：每期收益率记录。 
-- `backtest_period_return_comparison.png`：单期收益率对比折线图。 
-- `backtest_comparison_log.png`：对数累积收益对比图。
-
-控制台分别输出 Baseline 与理论最优策略的上述回测指标。
+**预测输出**：
+- `output/result.csv`：stock_id + weight（由 `commit.py` 生成）
 
 ---
 
 ## 3. 数据与输入输出约定
 
 默认训练数据文件：
-- `data/train.csv`
+- `data/train.csv` — 训练输入，并作为 `scripts/convert_data.py` 的数据源
 
-关键列：
-- `股票代码`、`日期`、`开盘`、`收盘`、`最高`、`最低`、`成交量`、`成交额`、`换手率`、`涨跌幅` 等。
+关键字段：
+- `股票代码`、`日期`、`开盘`、`收盘`、`最高`、`最低`、`成交量`、`成交额`、`换手率`、`涨跌幅`
 
-预测输出文件：
-- output目录下 `result.csv`（由 `predict.py` 生成）。
+行业数据：
+- `resource/行业分类.csv` — 中证四级行业编码，由 `scripts/convert_data.py` 编码为整数特征写入 Qlib 二进制
 
 ---
 
-## 4. 运行方法（推荐使用 uv）
+## 4. 运行方法
 
-1) 使用 `uv` 安装依赖
-   `uv sync`
-2) 激活虚拟环境
-   `source .venv/bin/activate`
-3) 训练模型
-	```
-	sh train.sh
-	```
-4) 生成预测结果
-	```
-	sh test.sh
-	```
+依赖管理使用 uv，禁止 pip/conda/poetry。
+
+```bash
+uv sync                       # 安装依赖
+source .venv/bin/activate     # 激活虚拟环境
+sh init.sh                    # 生成 Qlib 二进制数据 (temp/qlib_data/)
+sh train.sh                   # 训练 → model/result_model.pth + config_snapshot.yaml
+sh test.sh                    # 推理 → output/result.csv
+```
+
+调参评测（不修改 model/ 目录）：
+
+```bash
+python code/src/run_all_model.py run \
+  --yaml_paths="models/LightGBM/LightGBM.yaml"
+```
+
+Docker 打包与验证：
+
+```bash
+docker buildx build --platform linux/amd64 --build-arg IMAGE_NAME=nvidia/cuda -t bdc2026 .
+docker compose up             # 验证容器可运行
+python test/test.py           # 批量评分提交的 .tar 文件
+```
 
 ---
 
 ## 5. 常见问题
 
-1) `TA-Lib` 安装失败
-本项目特征工程依赖 `TA-Lib`，需要先安装系统层面的 `ta-lib` 库，再安装Python包。
-	```
-	wget https://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
-		tar -xzf ta-lib-0.4.0-src.tar.gz && \
-		cd ta-lib && \
-		./configure --prefix=/usr && \
-		make -j1 && \
-		make install && \
-		cd .. && \
-		rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
-	```
-2) 多进程相关问题  
-`train.py` 与 `predict.py` 均在入口使用了 `spawn` 模式，Linux/macOS下请保持通过脚本入口运行（不要在交互式环境里直接多进程调用主逻辑）。
+1) **TA-Lib 安装失败**
 
-3) GPU/CPU自动选择  
-代码会按 `CUDA -> MPS -> CPU` 顺序自动选择设备；无GPU时可直接CPU运行。
+本项目部分 Processor 依赖 TA-Lib，需先安装系统级 C 库：
+
+```
+wget https://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
+    tar -xzf ta-lib-0.4.0-src.tar.gz && \
+    cd ta-lib && \
+    ./configure --prefix=/usr && \
+    make -j1 && \
+    make install && \
+    cd .. && \
+    rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
+```
+
+Dockerfile 中已内置 TA-Lib 编译步骤，Docker 环境无需额外安装。
+
+2) **Qlib 二进制数据缺失**
+
+若 `temp/qlib_data/` 不存在或数据过期，运行 `sh init.sh` 重新生成。
+
+3) **GPU/CPU 自动选择**
+
+代码按 `CUDA → CPU` 顺序自动选择设备；无 GPU 时可直接 CPU 运行。

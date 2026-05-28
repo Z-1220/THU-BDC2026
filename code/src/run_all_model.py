@@ -1,5 +1,5 @@
 """
-比赛调参引擎 — 单次训练，多周评测，零磁盘写入。
+比赛调参引擎 — 单次训练，多周评测。
 
 用法:
     python code/src/run_all_model.py run --yaml_paths=models/LightGBM/LightGBM.yaml
@@ -27,6 +27,8 @@ from qlib.utils import init_instance_by_config
 import sys
 import random
 
+import torch
+
 # ── 路径设置 ──────────────────────────────────────────────────
 CURRENT_DIR = Path(__file__).resolve().parent          # code/src
 REPO_ROOT = CURRENT_DIR.parent                         # code/
@@ -44,6 +46,9 @@ for _p in [CURRENT_DIR, REPO_ROOT, _PROJECT_ROOT]:
 def set_seed(seed: int = 42) -> None:
     random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def only_allow_defined_args(func):

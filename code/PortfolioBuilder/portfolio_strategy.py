@@ -52,7 +52,7 @@ def _mean_variance(scores, returns_df, top_k, risk_model, lookback, risk_free_ra
 
 
 
-def _min_variance(scores, returns_df, top_k, risk_model, lookback):
+def _min_variance(scores, returns_df, top_k, risk_model, lookback, risk_free_rate=None):
     from pypfopt import EfficientFrontier, risk_models
 
     if returns_df is None:
@@ -69,7 +69,7 @@ def _min_variance(scores, returns_df, top_k, risk_model, lookback):
     return {c: w for c, w in ef.clean_weights().items() if w > 1e-4}
 
 
-def _risk_parity(scores, returns_df, top_k, lookback):
+def _risk_parity(scores, returns_df, top_k, lookback, risk_model=None, risk_free_rate=None):
     from pypfopt import HRPOpt
 
     if returns_df is None:

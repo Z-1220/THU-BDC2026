@@ -1,1 +1,1 @@
-uv run code/src/test.py
+uv run code/src/commit.py
