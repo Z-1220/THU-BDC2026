@@ -212,6 +212,8 @@ def validate(
 
 def finetune(args: argparse.Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if args.batch_size is None:
+        args.batch_size = 128 if args.model == "small" else 64
     print(f"Device: {device}")
 
     pretrained_dir = Path(args.pretrained_dir)
@@ -291,7 +293,8 @@ def main() -> None:
     parser.add_argument("--save-dir", default=str(_PROJECT_ROOT / "model" / "kronos_finetuned"))
     parser.add_argument("--lookback", type=int, default=60)
     parser.add_argument("--pred-len", type=int, default=5)
-    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--batch-size", type=int, default=None,
+                        help="Default: 64 (small) / 32 (base)")
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=4e-5)
     parser.add_argument("--grad-clip", type=float, default=3.0)
