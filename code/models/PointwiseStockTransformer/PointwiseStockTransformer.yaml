@@ -1,19 +1,12 @@
 qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn
-  exp_manager:
-    class: MLflowExpManager
-    module_path: qlib.workflow.expm
-    kwargs:
-      uri: "file:./temp/mlruns"
-      default_exp_name: pointwise_transformer_test
 
 task:
   model:
     class: PointwiseTransformerModel
     module_path: "code.models.PointwiseStockTransformer.PointwiseStockTransformer"
     kwargs:
-      d_feat: 6
       seq_len: 60
       d_model: 256
       nhead: 4
@@ -27,6 +20,17 @@ task:
       loss: "mse"
       seed: 42
 
+  # ── 修复2: 补上 strategy（run_all_model.py 必读） ──
+  strategy:
+    class: PyPortfolioOptStrategy
+    module_path: "code.PortfolioBuilder.portfolio_strategy"
+    kwargs:
+      optimizer: "mean_variance"
+      top_k: 5
+      risk_model: "ledoit_wolf"
+      lookback: 60
+      risk_free_rate: 0.02
+
   dataset:
     class: TSDatasetH
     module_path: qlib.data.dataset
@@ -39,8 +43,9 @@ task:
           start_time: "2024-01-01"
           end_time: "2026-04-17"
           fit_start_time: "2024-01-01"
-          fit_end_time: "2026-02-10"
+          fit_end_time: "2025-12-31"          # ← 修复1: 严格在 test 之前
           infer_processors:
+            # ---- 自定义因子 Processor ----
             - class: MomentumProcessor
               module_path: "code.processors.custom_processor"
             - class: VolatilityProcessor
@@ -65,37 +70,29 @@ task:
               module_path: "code.processors.custom_processor"
             - class: SectorLevelProcessor
               module_path: "code.processors.custom_processor"
+            # ---- 标准化 + 填充 ----
+            # ← 修复4: 补上 module_path
             - class: RobustZScoreNorm
+              module_path: "qlib.data.dataset.processor"
               kwargs:
                 fields_group: "feature"
                 clip_outlier: True
             - class: Fillna
+              module_path: "qlib.data.dataset.processor"
               kwargs:
                 fields_group: "feature"
           learn_processors:
             - class: DropnaLabel
-            - class: RobustZScoreNorm
-              kwargs:
-                fields_group: "feature"
-                clip_outlier: True
-            - class: Fillna
-              kwargs:
-                fields_group: "feature"
+              module_path: "qlib.data.dataset.processor"
+
       segments:
-        train: ["2024-01-01", "2026-02-10"]
-        valid: ["2026-02-11", "2026-04-03"]
-        test:  ["2026-04-07", "2026-04-10"]
+        train: ["2024-01-01", "2025-12-31"]
+        valid: ["2026-01-05", "2026-01-30"]
+        test:  ["2026-02-02", "2026-04-10"]
       step_len: 60
       fillna_type: "ffill+bfill"
 
-  record:
-    - class: SignalRecord
-      module_path: qlib.workflow.record_temp
-      kwargs:
-        model: <MODEL>
-        dataset: <DATASET>
-    - class: SigAnaRecord
-      module_path: qlib.workflow.record_temp
-      kwargs:
-        ana_long_short: False
-        ann_scaler: 252
+  # ── 修复3: 补上 evaluation（run_all_model.py 必读） ──
+  evaluation:
+    universe: "all"
+    data_end: "2026-04-17"

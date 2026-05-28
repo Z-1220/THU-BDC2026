@@ -1,12 +1,9 @@
+# ============================================================
+# 比赛调参配置 — 已清除所有非必要产物
+# ============================================================
 qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn
-  exp_manager:
-    class: MLflowExpManager
-    module_path: qlib.workflow.expm
-    kwargs:
-      uri: "file:./temp/mlruns"
-      default_exp_name: lgbm_test
 
 task:
   model:
@@ -20,6 +17,17 @@ task:
       early_stopping_rounds: 50
       seed: 42
 
+  strategy:
+      class: PyPortfolioOptStrategy
+      module_path: "code.PortfolioBuilder.portfolio_strategy"
+      kwargs:
+        optimizer: "mean_variance"
+        top_k: 5
+        risk_model: "ledoit_wolf"
+        lookback: 60
+        risk_free_rate: 0.02
+
+
   dataset:
     class: DatasetH
     module_path: qlib.data.dataset
@@ -32,8 +40,9 @@ task:
           start_time: "2024-01-01"
           end_time: "2026-04-17"
           fit_start_time: "2024-01-01"
-          fit_end_time: "2026-02-10"
+          fit_end_time: "2025-12-31"
           infer_processors:
+            # ---- 自定义因子 Processor ----
             - class: MomentumProcessor
               module_path: "code.processors.custom_processor"
             - class: VolatilityProcessor
@@ -58,37 +67,27 @@ task:
               module_path: "code.processors.custom_processor"
             - class: SectorLevelProcessor
               module_path: "code.processors.custom_processor"
+            # ---- 标准化 + 填充 ----
             - class: RobustZScoreNorm
+              module_path: "qlib.data.dataset.processor"
               kwargs:
                 fields_group: "feature"
                 clip_outlier: True
             - class: Fillna
+              module_path: "qlib.data.dataset.processor"
               kwargs:
                 fields_group: "feature"
+            # [已删除] FridayFilterProcessor — 未定义，且应在评测层过滤而非数据层
           learn_processors:
-            - class: FridayFilterProcessor
-              module_path: "code.processors.custom_processor"
+            # [已修复] 只保留标签处理，删除了重复的标准化
             - class: DropnaLabel
-            - class: RobustZScoreNorm
-              kwargs:
-                fields_group: "feature"
-                clip_outlier: True
-            - class: Fillna
-              kwargs:
-                fields_group: "feature"
+              module_path: "qlib.data.dataset.processor"
       segments:
-        train: ["2024-01-01", "2026-02-10"]
-        valid: ["2026-02-11", "2026-04-03"]
-        test:  ["2026-04-07", "2026-04-10"]
+        train: ["2024-01-01", "2025-12-31"]
+        valid: ["2026-01-05", "2026-01-30"]
+        test:  ["2026-02-02", "2026-04-10"]
 
-  record:
-    - class: SignalRecord
-      module_path: qlib.workflow.record_temp
-      kwargs:
-        model: <MODEL>
-        dataset: <DATASET>
-    - class: SigAnaRecord
-      module_path: qlib.workflow.record_temp
-      kwargs:
-        ana_long_short: False
-        ann_scaler: 252
+  # ---- 比赛专属评测配置（run_all_model.py 读取，Qlib原生不识别）----
+  evaluation:
+    universe: "all"        # 评测只在CSI300池子里选股
+    data_end: "2026-04-17"    # 需要test_end之后5天的open数据来计算收益
