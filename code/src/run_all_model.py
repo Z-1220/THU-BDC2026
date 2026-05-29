@@ -17,6 +17,9 @@ from typing import Any
 
 import fire
 import numpy as np
+import os
+os.environ["MLFLOW_TRACKING_URI"] = "/tmp/mlruns"
+
 import pandas as pd
 import qlib
 import yaml
