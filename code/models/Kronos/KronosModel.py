@@ -107,6 +107,9 @@ class KronosModel(Model):
         # Pre-load raw OHLCV data for fast access in predict()
         self._ohlcv_df = self._load_ohlcv_data()
 
+        # Load sector mapping for industry-neutral adjustment
+        self._sector_map = self._load_sector_map()
+
     # ------------------------------------------------------------------
     # Model loading
     # ------------------------------------------------------------------
@@ -137,6 +140,18 @@ class KronosModel(Model):
             model, tokenizer, device=self.device, max_context=self.max_context
         )
         self.logger.info("Kronos model loaded.")
+
+    def _load_sector_map(self) -> dict[str, str]:
+        """Load sector_l1 mapping from resource/行业分类.csv.
+
+        Returns dict: csv_stock_code (e.g. '600000') -> sector_l1 name (e.g. '金融').
+        """
+        csv_path = _PROJECT_ROOT / "resource" / "行业分类.csv"
+        if not csv_path.exists():
+            self.logger.warning(f"Sector file not found at {csv_path}, skipping sector neutralization.")
+            return {}
+        df = pd.read_csv(csv_path, encoding="utf-8-sig", dtype={"证券代码": str})
+        return dict(zip(df["证券代码"], df["中证一级行业分类简称"]))
 
     @staticmethod
     def _load_ohlcv_data() -> pd.DataFrame:
@@ -317,6 +332,18 @@ class KronosModel(Model):
                 final_scores.append(scores[idx])
             else:
                 final_scores.append(0.0)
+
+        # ---- Sector-neutral adjustment ----
+        if self._sector_map:
+            csv_codes = [self._csv_code(inst) for inst in instruments]
+            sectors = [self._sector_map.get(c, None) for c in csv_codes]
+            # Group scores by sector, compute sector median, subtract
+            df = pd.DataFrame({"score": final_scores, "sector": sectors})
+            sector_medians = df.groupby("sector")["score"].transform("median")
+            # Only adjust stocks with known sectors
+            known = df["sector"].notna()
+            df.loc[known, "score"] = df.loc[known, "score"] - sector_medians[known]
+            final_scores = df["score"].tolist()
 
         return pd.Series(
             final_scores,
