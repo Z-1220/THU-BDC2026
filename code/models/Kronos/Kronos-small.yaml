@@ -51,6 +51,12 @@ task:
               module_path: "qlib.data.dataset.processor"
               kwargs:
                 fields_group: "feature"
+            - class: ScreenProcessor
+              module_path: "code.processors.custom_processor"
+              kwargs:
+                min_amount_rank: 0.3
+                trend_ma: 60
+                max_drawdown: 0.15
           learn_processors:
             - class: DropnaLabel
               module_path: "qlib.data.dataset.processor"

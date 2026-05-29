@@ -585,3 +585,64 @@ class FridayFilterProcessor(Processor):
         # 只保留星期五 (weekday == 4)
         mask = dates.dayofweek == 4
         return df[mask]
+
+
+class ScreenProcessor(Processor):
+    """金融筛选：剔除流动性枯竭、长期下行、连续暴跌的股票。
+
+    YAML 示例:
+      - class: ScreenProcessor
+        module_path: "code.processors.custom_processor"
+        kwargs:
+          min_amount_rank: 0.3    # 保留成交额前 70% 的股票
+          trend_ma: 60             # 价格需 > MA60
+          max_drawdown: 0.15       # 20日最大回撤 < 15%
+    """
+
+    def __init__(self, min_amount_rank: float = 0.3, trend_ma: int = 60,
+                 max_drawdown: float = 0.15):
+        self.min_amount_rank = min_amount_rank
+        self.trend_ma = trend_ma
+        self.max_drawdown = max_drawdown
+
+    def fit(self, df: pd.DataFrame = None) -> "ScreenProcessor":
+        return self
+
+    def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
+        if not isinstance(df.index, pd.MultiIndex):
+            return df
+
+        mask = pd.Series(True, index=df.index)
+
+        # Access base OHLCV fields via the "feature" fields_group
+        close = df.xs("CLOSE0", axis=1, level=1).squeeze()
+        amount = df.xs("AMOUNT0", axis=1, level=1).squeeze()
+
+        # 1) 趋势过滤: close > MA(trend_ma)
+        if self.trend_ma and self.trend_ma > 0 and close is not None:
+            ma = close.groupby("instrument").transform(
+                lambda x: x.shift(1).rolling(self.trend_ma, min_periods=self.trend_ma).mean()
+            )
+            mask &= close > ma
+
+        # 2) 回撤过滤: 20日最大回撤 < max_drawdown
+        if self.max_drawdown and self.max_drawdown < 1.0 and close is not None:
+            cummax = close.groupby("instrument").transform(
+                lambda x: x.shift(1).rolling(20, min_periods=5).max()
+            )
+            dd = (close / cummax - 1).abs()
+            mask &= dd < self.max_drawdown
+
+        # 3) 成交额过滤: 日均成交额排名 > min_amount_rank
+        if self.min_amount_rank and self.min_amount_rank > 0 and amount is not None:
+            avg_amount = amount.groupby("instrument").transform(
+                lambda x: x.shift(1).rolling(20, min_periods=5).mean()
+            )
+            rank = avg_amount.groupby("datetime").rank(pct=True)
+            mask &= rank >= self.min_amount_rank
+
+        # 降级保护: 至少保留 50 只
+        if mask.sum() < 50:
+            return df
+
+        return df[mask]

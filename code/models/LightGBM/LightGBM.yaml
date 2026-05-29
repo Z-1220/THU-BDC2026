@@ -80,6 +80,12 @@ task:
               module_path: "qlib.data.dataset.processor"
               kwargs:
                 fields_group: "feature"
+            - class: ScreenProcessor
+              module_path: "code.processors.custom_processor"
+              kwargs:
+                min_amount_rank: 0.3
+                trend_ma: 60
+                max_drawdown: 0.15
             # [已删除] FridayFilterProcessor — 未定义，且应在评测层过滤而非数据层
           learn_processors:
             # [已修复] 只保留标签处理，删除了重复的标准化
