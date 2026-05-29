@@ -217,11 +217,11 @@ def merge_stock_data(existing_df, new_df, stock_code):
 
 
 def main():
-    save_dir = "../data"
+    save_dir = "data"
     os.makedirs(save_dir, exist_ok=True)
     
     start_date = "2024-01-01"
-    end_date = "2026-05-28"
+    end_date = "2026-05-29"
     
     output_path = os.path.join(save_dir, "stock_data.csv")
     

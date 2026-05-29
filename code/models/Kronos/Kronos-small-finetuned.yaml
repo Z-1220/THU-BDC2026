@@ -39,7 +39,7 @@ task:
         kwargs:
           instruments: "all"
           start_time: "2024-01-01"
-          end_time: "2026-05-27"
+          end_time: "2026-05-29"
           fit_start_time: "2024-01-01"
           fit_end_time: "2025-12-31"
           infer_processors:
@@ -61,8 +61,8 @@ task:
       segments:
         train: ["2024-01-01", "2025-12-31"]
         valid: ["2026-01-05", "2026-01-30"]
-        test:  ["2026-02-02", "2026-05-27"]
+        test:  ["2026-02-02", "2026-05-29"]
 
   evaluation:
     universe: "all"
-    data_end: "2026-05-27"
+    data_end: "2026-05-29"
