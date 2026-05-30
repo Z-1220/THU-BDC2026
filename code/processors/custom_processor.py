@@ -612,11 +612,16 @@ class ScreenProcessor(Processor):
         if not isinstance(df.index, pd.MultiIndex):
             return df
 
+        # Guard against missing columns (consistent with other Processors)
+        cols = df.columns.get_level_values(-1) if isinstance(df.columns, pd.MultiIndex) else df.columns
+        if "CLOSE0" not in cols:
+            return df
+
         mask = pd.Series(True, index=df.index)
 
-        # Access base OHLCV fields via the "feature" fields_group
-        close = df.xs("CLOSE0", axis=1, level=1).squeeze()
-        amount = df.xs("AMOUNT0", axis=1, level=1).squeeze()
+        # Access base OHLCV fields via shared helper
+        close = _get_feat_col_single(df, "CLOSE0")
+        amount = _get_feat_col_single(df, "AMOUNT0") if "AMOUNT0" in cols else None
 
         # 1) 趋势过滤: close > MA(trend_ma)
         if self.trend_ma and self.trend_ma > 0 and close is not None:

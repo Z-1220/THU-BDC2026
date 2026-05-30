@@ -10,12 +10,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import math
-import os
 import sys
 import time
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -298,7 +295,7 @@ def main() -> None:
     parser.add_argument("--lookback", type=int, default=60)
     parser.add_argument("--pred-len", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=None,
-                        help="Default: 64 (small) / 32 (base)")
+                        help="Default: 512 (small) / 256 (base)")
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=4e-5)
     parser.add_argument("--grad-clip", type=float, default=3.0)

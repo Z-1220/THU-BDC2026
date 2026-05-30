@@ -308,6 +308,7 @@ class KronosModel(Model):
                 )
                 pred_dfs.append(pdf)
             except Exception:
+                self.logger.warning(f"Prediction failed for {valid_instruments[i]}", exc_info=True)
                 pred_dfs.append(None)
 
         # Compute scores: predicted 5-day open return, aligned with LABEL0
@@ -319,30 +320,27 @@ class KronosModel(Model):
                 continue
             pred_open_t1 = pred_dfs[i]["open"].iloc[0]
             pred_open_t5 = pred_dfs[i]["open"].iloc[-1]
-            score = (pred_open_t5 - pred_open_t1) / (pred_open_t1 + 1e-12)
+            if pred_open_t1 <= 0 or not np.isfinite(pred_open_t1) or not np.isfinite(pred_open_t5):
+                scores.append(0.0)
+                continue
+            score = (pred_open_t5 - pred_open_t1) / pred_open_t1
             scores.append(score)
 
         # Fill zero for instruments we couldn't process
-        final_scores = []
-        inst_set = set(valid_instruments)
-        for inst in instruments:
-            if inst in inst_set:
-                idx = valid_instruments.index(inst)
-                final_scores.append(scores[idx])
-            else:
-                final_scores.append(0.0)
+        score_map = dict(zip(valid_instruments, scores))
+        final_scores = [score_map.get(inst, 0.0) for inst in instruments]
 
         # ---- Sector-neutral adjustment ----
         if self._sector_map:
             csv_codes = [self._csv_code(inst) for inst in instruments]
             sectors = [self._sector_map.get(c, None) for c in csv_codes]
             # Group scores by sector, compute sector median, subtract
-            df = pd.DataFrame({"score": final_scores, "sector": sectors})
-            sector_medians = df.groupby("sector")["score"].transform("median")
+            sec_df = pd.DataFrame({"score": final_scores, "sector": sectors})
+            sector_medians = sec_df.groupby("sector")["score"].transform("median")
             # Only adjust stocks with known sectors
-            known = df["sector"].notna()
-            df.loc[known, "score"] = df.loc[known, "score"] - sector_medians[known]
-            final_scores = df["score"].tolist()
+            known = sec_df["sector"].notna()
+            sec_df.loc[known, "score"] = sec_df.loc[known, "score"] - sector_medians[known]
+            final_scores = sec_df["score"].tolist()
 
         return pd.Series(
             final_scores,
@@ -378,6 +376,7 @@ class KronosModel(Model):
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update(state)
+        self._set_seed(self.seed)
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self._load_model()
         self._ohlcv_df = self._load_ohlcv_data()

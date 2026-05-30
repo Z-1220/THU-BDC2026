@@ -14,29 +14,20 @@ echo "=========================================="
 
 cd "$PROJECT_ROOT"
 
-# ---- 1. 更新 get_stock_data.py 的日期范围 ----
+# ---- 1. 拉取 Baostock 数据 (通过环境变量注入日期，不再 sed -i 修改源码) ----
 echo ""
-echo "[1/4] 更新 get_stock_data.py 截止日期为 $TODAY ..."
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s/end_date = \"[0-9-]*\"/end_date = \"$TODAY\"/" scripts/get_stock_data.py
-else
-    sed -i "s/end_date = \"[0-9-]*\"/end_date = \"$TODAY\"/" scripts/get_stock_data.py
-fi
-
-# ---- 2. 拉取 Baostock 数据 ----
-echo ""
-echo "[2/4] 从 Baostock 拉取最新数据（约5-10分钟）..."
+echo "[1/3] 从 Baostock 拉取最新数据（截止 $TODAY，约5-10分钟）..."
 source .venv/bin/activate
-uv run python scripts/get_stock_data.py
+END_DATE="$TODAY" uv run python scripts/get_stock_data.py
 
-# ---- 3. 生成新 train.csv ----
+# ---- 2. 生成新 train.csv ----
 echo ""
-echo "[3/4] 生成新的 train.csv（排除盲测区间 2026-04-13 ~ 2026-04-17）..."
+echo "[2/3] 生成新的 train.csv（排除盲测区间 2026-04-13 ~ 2026-04-17）..."
 uv run python scripts/update_train_data.py
 
-# ---- 4. 重建 Qlib 二进制 ----
+# ---- 3. 重建 Qlib 二进制 ----
 echo ""
-echo "[4/4] 通过 Docker 重建 Qlib 二进制数据..."
+echo "[3/3] 通过 Docker 重建 Qlib 二进制数据..."
 docker compose run --rm --entrypoint "" app uv run scripts/convert_data.py
 
 echo ""
