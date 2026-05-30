@@ -74,7 +74,7 @@ def build_model(cfg: dict[str, Any]) -> Any:
 
     pth_path = PROJECT_ROOT / "model" / "result_model.pth"
     if pth_path.exists():
-        state_dict = torch.load(pth_path, map_location="cpu")
+        state_dict = torch.load(pth_path, map_location="cpu", weights_only=False)
         # 尝试注入底层 PyTorch 网络
         if hasattr(model, "_net") and model._net is not None:
             model._net.load_state_dict(state_dict)
@@ -83,7 +83,9 @@ def build_model(cfg: dict[str, Any]) -> Any:
             model.load_state_dict(state_dict)
             print("[test] 已加载预训练模型 (via load_state_dict)")
         else:
-            warnings.warn("无法注入权重，模型将使用随机初始化，请确认已运行 train.py")
+            warnings.warn("无法注入权重，将通过 fit() 激活模型")
+            dataset = init_instance_by_config(cfg["task"]["dataset"])
+            model.fit(dataset)
         if hasattr(model, "to"):
             device = model.device if hasattr(model, "device") else torch.device("cpu")
             model.to(device)

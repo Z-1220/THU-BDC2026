@@ -380,3 +380,12 @@ class KronosModel(Model):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self._load_model()
         self._ohlcv_df = self._load_ohlcv_data()
+
+    def eval(self) -> "KronosModel":
+        """No-op for commit.py compatibility (Kronos is always inference mode)."""
+        return self
+
+    def to(self, device: torch.device) -> "KronosModel":
+        """No-op for commit.py compatibility."""
+        self.device = device
+        return self

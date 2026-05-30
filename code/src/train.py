@@ -16,6 +16,7 @@ import torch
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def set_seed(seed: int = 42) -> None:

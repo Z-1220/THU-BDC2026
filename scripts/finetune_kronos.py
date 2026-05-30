@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -37,9 +38,9 @@ _COL_MAP = {
 _REQUIRED = ["open", "high", "low", "close", "volume", "amount"]
 
 # ---- time split (consistent with YAML segments) ----
-_TRAIN_END = "2025-12-31"
-_VAL_START = "2026-01-05"
-_VAL_END = "2026-01-30"
+_TRAIN_END = os.environ.get("FINETUNE_TRAIN_END", "2025-12-31")
+_VAL_START = os.environ.get("FINETUNE_VAL_START", "2026-01-05")
+_VAL_END = os.environ.get("FINETUNE_VAL_END", "2026-01-30")
 
 
 # =====================================================================
