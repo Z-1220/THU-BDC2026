@@ -153,9 +153,9 @@ def get_stock_history_weekly(bs_code, start_date, end_date):
 
     columns = ['股票代码', '日期', '开盘', '收盘', '最高', '最低',
                '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅']
-    df = df[columns]
     df['振幅'] = None
     df['涨跌额'] = None
+    df = df[columns]
 
     return df
 
