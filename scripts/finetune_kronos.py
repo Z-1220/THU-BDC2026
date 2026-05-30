@@ -255,7 +255,7 @@ def finetune(args: argparse.Namespace) -> None:
     )
 
     # ---- Save dir ----
-    save_dir = Path(args.save_dir) / f"Kronos-{args.model}"
+    save_dir = Path(args.save_dir) / f"Kronos-{args.model}-lb{args.lookback}"
     save_dir.mkdir(parents=True, exist_ok=True)
 
     best_val = float("inf")
