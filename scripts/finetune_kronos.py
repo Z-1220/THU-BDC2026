@@ -216,12 +216,18 @@ def finetune(args: argparse.Namespace) -> None:
     print(f"Device: {device}")
 
     pretrained_dir = Path(args.pretrained_dir)
-    tokenizer_dir = pretrained_dir / "Kronos-Tokenizer-base"
     model_dir = pretrained_dir / f"Kronos-{args.model}"
 
-    for d in [tokenizer_dir, model_dir]:
-        if not d.exists():
-            raise FileNotFoundError(f"{d} not found. Run scripts/download_kronos_models.py first.")
+    # ---- Tokenizer: use fine-tuned if provided, else pretrained ----
+    if args.tokenizer_dir:
+        tokenizer_dir = Path(args.tokenizer_dir)
+    else:
+        tokenizer_dir = pretrained_dir / "Kronos-Tokenizer-base"
+
+    if not model_dir.exists():
+        raise FileNotFoundError(f"{model_dir} not found. Run scripts/download_kronos_models.py first.")
+    if not tokenizer_dir.exists():
+        raise FileNotFoundError(f"{tokenizer_dir} not found.")
 
     # ---- Load models ----
     print(f"Loading tokenizer from {tokenizer_dir} ...")
@@ -292,7 +298,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Fine-tune Kronos on A-share OHLCV")
     parser.add_argument("--model", default="small", choices=["small", "base"])
     parser.add_argument("--pretrained-dir", default=str(_PROJECT_ROOT / "model" / "kronos_pretrained"))
-    parser.add_argument("--save-dir", default=str(_PROJECT_ROOT / "model" / "kronos_finetuned"))
+    parser.add_argument("--tokenizer-dir", default=None,
+                        help="Path to fine-tuned tokenizer (default: pretrained)")
+    parser.add_argument("--save-dir", default=str(_PROJECT_ROOT / "model" / "kronos_phase2"))
     parser.add_argument("--lookback", type=int, default=60)
     parser.add_argument("--pred-len", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=None,

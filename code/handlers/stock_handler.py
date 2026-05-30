@@ -51,6 +51,11 @@ EXTRA_EXPR_FEATURES: list[tuple[str, str]] = [
     ("$close / Ref($close, 1) - 1", "RET1"),
     ("$close / Ref($close, 5) - 1", "RET5"),
     ("$close / Ref($close, 10) - 1", "RET10"),
+    ("$close / Ref($close, 20) - 1", "RET20"),
+    # --- 短期波动率（日收益率的滚动标准差） ---
+    ("Std($close / Ref($close, 1) - 1, 5)", "VOL5"),
+    ("Std($close / Ref($close, 1) - 1, 10)", "VOL10"),
+    ("Std($close / Ref($close, 1) - 1, 20)", "VOL20"),
 ]
 
 
