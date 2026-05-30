@@ -20,7 +20,7 @@ task:
       sample_count: 1
       seed: 42
 
-  # strategy: removed — equal-weight top-5 outperforms risk_parity (+21.2% vs +14.2%)
+  # strategy: removed — comparing equal-weight vs risk_parity
 
   dataset:
     class: DatasetH
