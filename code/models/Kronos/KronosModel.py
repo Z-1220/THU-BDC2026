@@ -64,7 +64,6 @@ class KronosModel(Model):
         T: float = 1.0,
         top_p: float = 0.9,
         sample_count: int = 1,
-        uncertainty_drop_frac: float = 0.0,
         seed: int = 42,
         **kwargs: Any,
     ) -> None:
@@ -80,8 +79,6 @@ class KronosModel(Model):
             T: sampling temperature.
             top_p: nucleus sampling threshold.
             sample_count: number of Monte Carlo samples (averaged).
-            uncertainty_drop_frac: drop fraction of stocks with highest
-                                  prediction disagreement (0 = no drop).
             seed: random seed.
         """
         self.logger = get_module_logger("KronosModel")
@@ -93,7 +90,6 @@ class KronosModel(Model):
         self.T = T
         self.top_p = top_p
         self.sample_count = sample_count
-        self.uncertainty_drop_frac = uncertainty_drop_frac
         self.seed = seed
 
         self._set_seed(seed)
@@ -296,52 +292,35 @@ class KronosModel(Model):
             )
 
         # Use individual predict() to avoid equal-length constraint of predict_batch
-        def _predict_all():
-            pdfs = []
-            for i in range(len(x_dfs)):
-                try:
-                    pdf = self._predictor.predict(
-                        df=x_dfs[i], x_timestamp=x_ts_list[i],
-                        y_timestamp=pd.Series(y_timestamps),
-                        pred_len=actual_pred_len, T=self.T, top_k=0,
-                        top_p=self.top_p, sample_count=1, verbose=False,
-                    )
-                    pdfs.append(pdf)
-                except Exception:
-                    pdfs.append(None)
-            return pdfs
+        pred_dfs = []
+        for i in range(len(x_dfs)):
+            try:
+                pdf = self._predictor.predict(
+                    df=x_dfs[i],
+                    x_timestamp=x_ts_list[i],
+                    y_timestamp=pd.Series(y_timestamps),
+                    pred_len=actual_pred_len,
+                    T=self.T,
+                    top_k=0,
+                    top_p=self.top_p,
+                    sample_count=self.sample_count,
+                    verbose=False,
+                )
+                pred_dfs.append(pdf)
+            except Exception:
+                pred_dfs.append(None)
 
-        def _compute_scores(pdfs):
-            s = []
-            for i in range(len(pdfs)):
-                if pdfs[i] is None:
-                    s.append(0.0)
-                    continue
-                o1 = pdfs[i]["open"].iloc[0]
-                o5 = pdfs[i]["open"].iloc[-1]
-                s.append((o5 - o1) / (o1 + 1e-12))
-            return s
-
-        pred_dfs_a = _predict_all()
-        scores = _compute_scores(pred_dfs_a)
-
-        # ---- Uncertainty filtering ----
-        if self.uncertainty_drop_frac > 0 and len(valid_instruments) >= 5:
-            pred_dfs_b = _predict_all()
-            scores_b = _compute_scores(pred_dfs_b)
-
-            # Normalized disagreement between two runs
-            disagreements = np.array([
-                abs(scores[i] - scores_b[i]) / (abs(scores[i]) + abs(scores_b[i]) + 1e-12)
-                if pred_dfs_a[i] is not None and pred_dfs_b[i] is not None
-                else 1.0
-                for i in range(len(valid_instruments))
-            ])
-
-            threshold = np.percentile(disagreements, 100 * (1 - self.uncertainty_drop_frac))
-            for i in range(len(valid_instruments)):
-                if disagreements[i] > threshold:
-                    scores[i] = -float("inf")
+        # Compute scores: predicted 5-day open return, aligned with LABEL0
+        # LABEL0 = (open[T+5] - open[T+1]) / (open[T+1] + 1e-12)
+        scores = []
+        for i, inst in enumerate(valid_instruments):
+            if pred_dfs[i] is None:
+                scores.append(0.0)
+                continue
+            pred_open_t1 = pred_dfs[i]["open"].iloc[0]
+            pred_open_t5 = pred_dfs[i]["open"].iloc[-1]
+            score = (pred_open_t5 - pred_open_t1) / (pred_open_t1 + 1e-12)
+            scores.append(score)
 
         # Fill zero for instruments we couldn't process
         final_scores = []

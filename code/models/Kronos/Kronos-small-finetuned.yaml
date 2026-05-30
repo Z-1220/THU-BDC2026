@@ -18,7 +18,6 @@ task:
       T: 1.0
       top_p: 0.9
       sample_count: 1
-      uncertainty_drop_frac: 0.2
       seed: 42
 
   strategy:
