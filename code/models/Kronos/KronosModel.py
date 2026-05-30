@@ -311,19 +311,22 @@ class KronosModel(Model):
                 self.logger.warning(f"Prediction failed for {valid_instruments[i]}", exc_info=True)
                 pred_dfs.append(None)
 
-        # Compute scores: predicted 5-day open return, aligned with LABEL0
-        # LABEL0 = (open[T+5] - open[T+1]) / (open[T+1] + 1e-12)
+        # Compute scores: predicted risk-adjusted return from 5-day close path
+        # Uses full predicted price trajectory, not just open endpoints.
+        # score ≈ predicted daily Sharpe over the 5-day holding period.
         scores = []
         for i, inst in enumerate(valid_instruments):
             if pred_dfs[i] is None:
                 scores.append(0.0)
                 continue
-            pred_open_t1 = pred_dfs[i]["open"].iloc[0]
-            pred_open_t5 = pred_dfs[i]["open"].iloc[-1]
-            if pred_open_t1 <= 0 or not np.isfinite(pred_open_t1) or not np.isfinite(pred_open_t5):
+            pred_closes = pred_dfs[i]["close"].values
+            if len(pred_closes) < 2 or not np.isfinite(pred_closes).all():
                 scores.append(0.0)
                 continue
-            score = (pred_open_t5 - pred_open_t1) / pred_open_t1
+            daily_rets = np.diff(pred_closes) / (pred_closes[:-1] + 1e-12)
+            mean_ret = daily_rets.mean()
+            std_ret = daily_rets.std(ddof=0)
+            score = mean_ret / (std_ret + 1e-12)
             scores.append(score)
 
         # Fill zero for instruments we couldn't process
