@@ -312,15 +312,16 @@ class KronosModel(Model):
             except Exception:
                 pred_dfs.append(None)
 
-        # Compute scores: predicted close return over the forecast horizon
+        # Compute scores: predicted 5-day open return, aligned with LABEL0
+        # LABEL0 = (open[T+5] - open[T+1]) / (open[T+1] + 1e-12)
         scores = []
         for i, inst in enumerate(valid_instruments):
             if pred_dfs[i] is None:
                 scores.append(0.0)
                 continue
-            last_close = x_dfs[i]["close"].iloc[-1]
-            pred_close = pred_dfs[i]["close"].iloc[-1]
-            score = (pred_close - last_close) / (last_close + 1e-12)
+            pred_open_t1 = pred_dfs[i]["open"].iloc[0]
+            pred_open_t5 = pred_dfs[i]["open"].iloc[-1]
+            score = (pred_open_t5 - pred_open_t1) / (pred_open_t1 + 1e-12)
             scores.append(score)
 
         # Fill zero for instruments we couldn't process
