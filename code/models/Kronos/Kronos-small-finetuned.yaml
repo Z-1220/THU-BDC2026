@@ -17,7 +17,7 @@ task:
       pred_len: 5
       T: 1.0
       top_p: 0.9
-      sample_count: 1
+      sample_count: 5
       seed: 42
 
   strategy:
