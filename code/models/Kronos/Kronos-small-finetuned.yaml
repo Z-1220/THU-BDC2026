@@ -12,7 +12,7 @@ task:
     kwargs:
       model_name: "small"
       pretrained_dir: "./model/kronos_pretrained"
-      finetuned_dir: "./model/kronos_phase2/Kronos-small-lb60"
+      finetuned_dir: "./model/kronos_finetuned/Kronos-small-lb60"
       max_context: 512
       pred_len: 5
       T: 1.0
