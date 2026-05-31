@@ -324,4 +324,4 @@ output/run_all_model/
 mlruns/
 model/kronos_pretrained/
 model/kronos_finetuned/
-.idea/
+.idea/*.tar
