@@ -329,6 +329,7 @@ def evaluate_config(task_cfg: dict, eval_cfg: dict) -> dict:
 
     # ── 7) 逐周评测 ──
     details = []
+    ranking_metrics = []  # per-week ranking metrics
 
     for p in periods:
         sd, bd, sed = p["signal_day"], p["buy_day"], p["sell_day"]
@@ -343,7 +344,48 @@ def evaluate_config(task_cfg: dict, eval_cfg: dict) -> dict:
             details.append(_mk_detail(p, 0.0, "empty_pred"))
             continue
 
-        # 选股 + 权重
+        # ---- 排名质量指标（全股票） ----
+        try:
+            all_insts = dp.index.intersection(price_df.index)
+            # 所有股票的实际收益率 (T+1 open → T+5 open)
+            all_bp = price_df.loc[all_insts, bd]
+            all_sp = price_df.loc[all_insts, sed]
+            valid_all = all_bp.notna() & all_sp.notna() & (all_bp > 0)
+            all_insts_valid = all_insts[valid_all]
+            if len(all_insts_valid) >= 5:
+                actual_rets = (all_sp[valid_all] / all_bp[valid_all]) - 1.0
+                pred_scores = dp.loc[all_insts_valid]
+
+                # RankIC (Spearman correlation)
+                from scipy.stats import spearmanr
+                rank_ic, _ = spearmanr(pred_scores, actual_rets)
+                rank_ic = 0.0 if np.isnan(rank_ic) else float(rank_ic)
+
+                # Top5 Hit Rate
+                actual_top5 = set(actual_rets.nlargest(5).index)
+                pred_top5_rank = set(pred_scores.nlargest(5).index)
+                hit5 = float(len(actual_top5 & pred_top5_rank)) / 5.0
+
+                # Top10 Recall
+                actual_top10 = set(actual_rets.nlargest(10).index)
+                top10_recall = float(len(actual_top10 & pred_top5_rank)) / 10.0
+
+                # NDCG@5
+                pred_top5_rets = actual_rets.loc[list(pred_top5_rank)]
+                dcg5 = _dcg_at_k(pred_top5_rets.values, 5)
+                idcg5 = _dcg_at_k(actual_rets.nlargest(5).values, 5)
+                ndcg5 = float(dcg5 / idcg5) if idcg5 > 0 else 0.0
+
+                ranking_metrics.append({
+                    "rank_ic": rank_ic,
+                    "hit5": hit5,
+                    "top10_recall": top10_recall,
+                    "ndcg5": ndcg5,
+                })
+        except Exception:
+            pass  # skip ranking metrics if data unavailable
+
+        # ---- 选股 + 权重 ----
         if strategy is not None:
             try:
                 w = strategy.generate_target_weight_position(
@@ -386,7 +428,32 @@ def evaluate_config(task_cfg: dict, eval_cfg: dict) -> dict:
         ))
 
     returns = pd.Series([d["return"] for d in details])
-    return {"metrics": _calc_metrics(returns), "weekly_details": details, "error": None}
+    result = {"metrics": _calc_metrics(returns), "weekly_details": details, "error": None}
+
+    # ---- 聚合排名指标 ----
+    if ranking_metrics:
+        rdf = pd.DataFrame(ranking_metrics)
+        result["ranking_metrics"] = {
+            "rank_ic_mean": round(float(rdf["rank_ic"].mean()), 4),
+            "rank_ic_std": round(float(rdf["rank_ic"].std()), 4),
+            "rank_ic_positive_rate": round(
+                float((rdf["rank_ic"] > 0).mean()), 4
+            ),
+            "hit5_mean": round(float(rdf["hit5"].mean()), 4),
+            "top10_recall_mean": round(float(rdf["top10_recall"].mean()), 4),
+            "ndcg5_mean": round(float(rdf["ndcg5"].mean()), 4),
+        }
+    else:
+        result["ranking_metrics"] = {}
+
+    return result
+
+
+def _dcg_at_k(scores: np.ndarray, k: int) -> float:
+    """Discounted Cumulative Gain at k (gain = score, no relevance binarization)."""
+    scores = np.asarray(scores, dtype=float)[:k]
+    discounts = np.log2(np.arange(2, k + 2, dtype=float))
+    return float(np.sum(scores / discounts))
 
 
 def _mk_detail(period, ret, status, **extra):
@@ -486,6 +553,26 @@ def render_summary(rows: list[dict]) -> str:
             f"| {m.get('gain_loss_ratio', 0):.2f} "
             f"| {gain_neg} |"
         )
+    # ── 排名质量表 ──
+    lines.append("")
+    lines.append("## 排名质量 (Ranking Quality)")
+    lines.append("")
+    h3 = ("| Model | RankIC | IC>0% | Hit@5 | Recall@10 | NDCG@5 |\n"
+          "|-------|-------:|------:|------:|----------:|-------:|\n")
+    lines.append(h3)
+    for r in rows:
+        rm = r.get("ranking_metrics", {})
+        if rm:
+            lines.append(
+                f"| {r['model_name']} "
+                f"| {rm.get('rank_ic_mean', 0):.4f} "
+                f"| {rm.get('rank_ic_positive_rate', 0):.1%} "
+                f"| {rm.get('hit5_mean', 0):.1%} "
+                f"| {rm.get('top10_recall_mean', 0):.1%} "
+                f"| {rm.get('ndcg5_mean', 0):.4f} |"
+            )
+        else:
+            lines.append(f"| {r['model_name']} | — | — | — | — | — |")
     # ── 错误 ──
     for r in rows:
         if r.get("error"):
@@ -563,6 +650,11 @@ class ModelRunner:
                       f"(Gain {m['avg_gain']:+.4f} / Loss {m['avg_loss']:+.4f})")
                 print(f"     Worst3 / Best3: {m['worst_3_avg']:+.4f} / {m['best_3_avg']:+.4f}")
                 print(f"     Cum Return   : {m['cumulative_return']:+.4f}")
+            # 排名质量指标
+            rm = result.get("ranking_metrics", {})
+            if rm:
+                print(f"     RankIC: {rm.get('rank_ic_mean', 0):.4f} (IC>0: {rm.get('rank_ic_positive_rate', 0):.1%})")
+                print(f"     Hit@5: {rm.get('hit5_mean', 0):.1%}  |  Recall@10: {rm.get('top10_recall_mean', 0):.1%}  |  NDCG@5: {rm.get('ndcg5_mean', 0):.4f}")
 
             # 每周明细
             for d in result.get("weekly_details", []):
@@ -574,6 +666,7 @@ class ModelRunner:
             summary_rows.append({
                 "model_name": model_name,
                 "metrics": m,
+                "ranking_metrics": result.get("ranking_metrics", {}),
                 "error": result.get("error"),
             })
 
