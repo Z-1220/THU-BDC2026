@@ -44,6 +44,14 @@ temp/
 output/
 test/output/
 
+# ---- 实验产物（仅保留 kronos_pretrained + kronos_finetuned） ----
+model/kronos_phase1/
+model/kronos_phase2/
+code/output/
+
+# ---- 不必要的文档 ----
+CLAUDE.md
+
 # ---- MLflow 训练日志 ----
 mlruns/
 
