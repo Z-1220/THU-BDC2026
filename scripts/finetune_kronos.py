@@ -38,6 +38,7 @@ _COL_MAP = {
 _REQUIRED = ["open", "high", "low", "close", "volume", "amount"]
 
 # ---- time split (consistent with YAML segments) ----
+_TRAIN_START = os.environ.get("FINETUNE_TRAIN_START", None)
 _TRAIN_END = os.environ.get("FINETUNE_TRAIN_END", "2025-12-31")
 _VAL_START = os.environ.get("FINETUNE_VAL_START", "2026-01-05")
 _VAL_END = os.environ.get("FINETUNE_VAL_END", "2026-01-30")
@@ -72,6 +73,8 @@ class KlineFinetuneDataset(Dataset):
         if split == "train":
             # Train: samples must end on or before _TRAIN_END
             df = df[df["日期"] <= _TRAIN_END].copy()
+            if _TRAIN_START is not None:
+                df = df[df["日期"] >= _TRAIN_START].copy()
         else:
             # Val: include data before _VAL_START for lookback context,
             # but only create samples whose last date is in [_VAL_START, _VAL_END]

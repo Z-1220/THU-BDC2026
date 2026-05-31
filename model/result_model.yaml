@@ -9,7 +9,7 @@ task:
     kwargs:
       model_name: "small"
       pretrained_dir: "./model/kronos_pretrained"
-      finetuned_dir: "./model/kronos_finetuned/Kronos-small-lb60"
+      finetuned_dir: "./model/kronos_phase2/Kronos-small-lb60"
       max_context: 512
       pred_len: 5
       T: 1.0
@@ -26,9 +26,9 @@ task:
         module_path: "code.handlers.stock_handler"
         kwargs:
           instruments: "all"
-          start_time: "2024-01-01"
+          start_time: "2022-01-01"
           end_time: "2026-05-29"
-          fit_start_time: "2024-01-01"
+          fit_start_time: "2022-01-01"
           fit_end_time: "2025-12-31"
           infer_processors:
             - class: FridayFilterProcessor
@@ -47,7 +47,7 @@ task:
             - class: DropnaLabel
               module_path: "qlib.data.dataset.processor"
       segments:
-        train: ["2024-01-01", "2025-12-31"]
+        train: ["2022-01-01", "2025-12-31"]
         valid: ["2026-01-05", "2026-01-30"]
         test:  ["2026-05-29", "2026-05-29"]
 
