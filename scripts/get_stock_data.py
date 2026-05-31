@@ -70,18 +70,18 @@ def get_stock_history(bs_code, start_date, end_date):
     numeric_cols = ['open', 'high', 'low', 'close', 'preclose', 'volume', 'amount', 'turn', 'pctChg']
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    
+
     # 计算振幅和涨跌额
     df['振幅'] = ((df['high'] - df['low']) / df['preclose'] * 100).round(2)
     df['涨跌额'] = (df['close'] - df['preclose']).round(2)
-    
-    # 转换日期格式 YYYY/M/D
-    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y/%-m/%-d')
-    
+
+    # 转换日期格式 YYYY/MM/DD（零填充，保证字符串排序正确）
+    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y/%m/%d')
+
     # 提取纯数字股票代码（统一为6位格式，不足前面补0）
     df['code'] = df['code'].str.replace('sh.', '').str.replace('sz.', '')
     df['code'] = df['code'].str.zfill(6)
-    
+
     # 重命名列
     df = df.rename(columns={
         'code': '股票代码',
@@ -95,12 +95,125 @@ def get_stock_history(bs_code, start_date, end_date):
         'turn': '换手率',
         'pctChg': '涨跌幅'
     })
-    
-    columns = ['股票代码', '日期', '开盘', '收盘', '最高', '最低', 
+
+    columns = ['股票代码', '日期', '开盘', '收盘', '最高', '最低',
                '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅']
     df = df[columns]
-    
+
     return df
+
+
+def get_stock_history_weekly(bs_code, start_date, end_date):
+    """获取单只股票周线历史数据（后复权）。
+
+    注意：Baostock 周线不支持 preclose 字段，因此不计算振幅/涨跌额。
+    """
+    rs = bs.query_history_k_data_plus(bs_code,
+        "date,code,open,high,low,close,volume,amount,turn,pctChg",
+        start_date=start_date, end_date=end_date,
+        frequency="w", adjustflag="1")  # frequency="w"=周线, adjustflag="1"=后复权
+
+    if rs.error_code != '0':
+        raise Exception(f"周线查询失败: {rs.error_msg}")
+
+    data_list = []
+    while (rs.error_code == '0') & rs.next():
+        data_list.append(rs.get_row_data())
+
+    if not data_list:
+        return None
+
+    df = pd.DataFrame(data_list, columns=rs.fields)
+
+    # 转换数据类型
+    numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'pctChg']
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # 转换日期格式
+    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y/%m/%d')
+
+    # 提取纯数字股票代码（统一为6位格式）
+    df['code'] = df['code'].str.replace('sh.', '').str.replace('sz.', '')
+    df['code'] = df['code'].str.zfill(6)
+
+    # 重命名列（周线无 振幅/涨跌额，填 NaN）
+    df = df.rename(columns={
+        'code': '股票代码',
+        'date': '日期',
+        'open': '开盘',
+        'close': '收盘',
+        'high': '最高',
+        'low': '最低',
+        'volume': '成交量',
+        'amount': '成交额',
+        'turn': '换手率',
+        'pctChg': '涨跌幅'
+    })
+
+    columns = ['股票代码', '日期', '开盘', '收盘', '最高', '最低',
+               '成交量', '成交额', '振幅', '涨跌额', '换手率', '涨跌幅']
+    df['振幅'] = None
+    df['涨跌额'] = None
+    df = df[columns]
+
+    return df
+
+
+def download_weekly_data():
+    """下载沪深300成分股周线数据，保存为 data/stock_data_weekly.csv"""
+    save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+    os.makedirs(save_dir, exist_ok=True)
+
+    start_date = os.environ.get("START_DATE", "2022-01-01")
+    end_date = os.environ.get("END_DATE", "2026-05-29")
+    output_path = os.path.join(save_dir, "stock_data_weekly.csv")
+
+    print(f"周线数据下载: {start_date} 至 {end_date}")
+
+    login()
+    try:
+        hs300_df = get_hs300_stocks()
+        hs300_df['纯代码'] = hs300_df['code'].str.replace('sh.', '').str.replace('sz.', '').str.zfill(6)
+
+        all_data = []
+        failed = []
+
+        for idx, row in hs300_df.iterrows():
+            bs_code = row['code']
+            stock_name = row.get('code_name', '')
+            pure_code = row['纯代码']
+
+            print(f"[{idx+1}/{len(hs300_df)}] {bs_code} {stock_name} ...", end=" ")
+            try:
+                df = get_stock_history_weekly(bs_code, start_date, end_date)
+                if df is not None and not df.empty:
+                    all_data.append(df)
+                    print(f"✓ {len(df)} 周")
+                else:
+                    print("✗ 无数据")
+                    failed.append((bs_code, stock_name))
+            except Exception as e:
+                print(f"✗ {e}")
+                failed.append((bs_code, stock_name))
+
+            if len(all_data) > 0 and len(all_data) % 20 == 0:
+                time.sleep(1)
+
+        if all_data:
+            result = pd.concat(all_data, ignore_index=True)
+            result['股票代码'] = result['股票代码'].astype(str).str.zfill(6)
+            result.to_csv(output_path, index=False, encoding='utf-8-sig')
+            print(f"\n周线数据已保存: {output_path}")
+            print(f"  - {len(result)} 条记录, {result['股票代码'].nunique()} 只股票")
+        else:
+            print("\n未获取到任何周线数据")
+
+        if failed:
+            print(f"失败: {len(failed)} 只")
+
+    finally:
+        logout()
 
 
 def get_existing_stocks(output_path):
@@ -198,8 +311,8 @@ def merge_stock_data(existing_df, new_df, stock_code):
         # 将日期转为datetime用于比较和去重
         stock_existing_copy = stock_existing.copy()
         new_df_copy = new_df.copy()
-        stock_existing_copy['日期_dt'] = pd.to_datetime(stock_existing_copy['日期'], format='%Y/%m/%d')
-        new_df_copy['日期_dt'] = pd.to_datetime(new_df_copy['日期'], format='%Y/%m/%d')
+        stock_existing_copy['日期_dt'] = pd.to_datetime(stock_existing_copy['日期'], errors='coerce')
+        new_df_copy['日期_dt'] = pd.to_datetime(new_df_copy['日期'], errors='coerce')
         
         # 合并并去重
         combined = pd.concat([stock_existing_copy, new_df_copy], ignore_index=True)
@@ -213,6 +326,8 @@ def merge_stock_data(existing_df, new_df, stock_code):
     
     # 重新组装：其他股票数据 + 该股票合并后的数据
     result = pd.concat([other_df, combined], ignore_index=True)
+    # 确保股票代码始终为6位字符串（pd.read_csv 可能把 000001 读成整数 1）
+    result['股票代码'] = result['股票代码'].astype(str).str.zfill(6)
     return result
 
 
@@ -220,7 +335,7 @@ def main():
     save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
     os.makedirs(save_dir, exist_ok=True)
 
-    start_date = "2024-01-01"
+    start_date = os.environ.get("START_DATE", "2022-01-01")
     end_date = os.environ.get("END_DATE", "2026-05-29")
     
     output_path = os.path.join(save_dir, "stock_data.csv")
@@ -386,4 +501,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--weekly":
+        download_weekly_data()
+    else:
+        main()

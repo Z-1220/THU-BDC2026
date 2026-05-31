@@ -1,9 +1,69 @@
-__pycache__
+# =====================================================================
+# Docker 构建忽略文件 — 最小化镜像体积，保证干净可复现
+# =====================================================================
+
+# ---- Python 运行时缓存 ----
+__pycache__/
+*.py[cod]
 *.pyc
-.git
-.venv
-.vscode
-.idea
+*.pyo
+
+# ---- 虚拟环境（Docker 内由 uv sync 重新创建） ----
+.venv/
+venv/
+env/
+
+# ---- Git 历史（不需要在镜像内） ----
+.git/
+.gitignore
+.gitattributes
+
+# ---- GitHub CI/CD ----
+.github/
+
+# ---- Claude Code 内部文件 ----
+.claude/
 .clinerules
-.github
 .clineignore
+memory/
+
+# ---- 文档（build 不需要） ----
+docs/
+GUIDE.md
+
+# ---- IDE 配置 ----
+.idea/
+.vscode/
+.DS_Store
+
+# ---- 数据文件（通过 docker-compose.yml 挂载） ----
+data/
+temp/
+
+# ---- 输出目录（通过 docker-compose.yml 挂载） ----
+output/
+test/output/
+
+# ---- MLflow 训练日志 ----
+mlruns/
+
+# ---- Docker 导出文件 ----
+*.tar
+*.tar.gz
+
+# ---- Python 工具链配置 ----
+.python-version
+.ruff_cache/
+
+# ---- 环境变量 ----
+.env
+.envrc
+
+# ---- 暂存 / 临时文件 ----
+*.tmp
+*.log
+*.swp
+*.swo
+
+# ---- 不需要的图形资源 ----
+asset/
