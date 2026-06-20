@@ -1,0 +1,58 @@
+qlib_init:
+  provider_uri: "./temp/qlib_data"
+  region: cn
+
+task:
+  model:
+    class: KronosModel
+    module_path: "code.models.Kronos.KronosModel"
+    kwargs:
+      model_name: "small"
+      pretrained_dir: "./model/kronos_pretrained"
+      finetuned_dir: "./model/kronos_finetuned/Kronos-small-lb60"
+      max_context: 512
+      pred_len: 5
+      T: 1.0
+      top_p: 0.9
+      sample_count: 1
+      seed: 42
+      cs_zscore: true
+
+  dataset:
+    class: DatasetH
+    module_path: qlib.data.dataset
+    kwargs:
+      handler:
+        class: StockDataHandler
+        module_path: "code.handlers.stock_handler"
+        kwargs:
+          instruments: "all"
+          start_time: "2022-01-01"
+          end_time: "2026-06-17"
+          fit_start_time: "2022-01-01"
+          fit_end_time: "2025-12-31"
+          infer_processors:
+            - class: FridayFilterProcessor
+              module_path: "code.processors.custom_processor"
+            - class: Fillna
+              module_path: "qlib.data.dataset.processor"
+              kwargs:
+                fields_group: "feature"
+            - class: ScreenProcessor
+              module_path: "code.processors.custom_processor"
+              kwargs:
+                min_amount_rank: 0.3
+                trend_ma: 60
+                max_drawdown: 0.15
+          learn_processors:
+            - class: DropnaLabel
+              module_path: "qlib.data.dataset.processor"
+      segments:
+        train: ["2022-01-01", "2025-12-31"]
+        valid: ["2026-01-05", "2026-01-30"]
+        test:  ["2026-03-20", "2026-06-12"]
+
+  evaluation:
+    universe: "all"
+    data_end: "2026-06-17"
+    exposure_mode: "confidence"
