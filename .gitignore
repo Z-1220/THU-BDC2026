@@ -338,3 +338,4 @@ model/kronos_phase2/
 
 # Experiment plan docx
 docs/*.docx
+model/config_snapshot.yaml
