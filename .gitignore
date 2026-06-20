@@ -325,3 +325,16 @@ mlruns/
 model/kronos_pretrained/
 model/kronos_finetuned/
 .idea/*.tar
+
+# Competition output artifacts
+output/result.csv
+test/output/result.csv
+code/output/
+
+# Model binaries
+model/result_model.pth
+model/kronos_phase1/
+model/kronos_phase2/
+
+# Experiment plan docx
+docs/*.docx
