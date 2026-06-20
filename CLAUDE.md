@@ -111,6 +111,16 @@ git log --oneline -5  # Verify commit history
 - If a commit is wrong, `git revert` (don't `git reset --hard` on shared history).
 - Uncommitted work is at risk. Commit early, commit often.
 
+### Push to remotes (MANDATORY after committing)
+After each commit or batch of related commits, push to both remotes:
+```bash
+git push gh main      # GitHub:   git@github.com:Z-1220/THU-BDC2026.git
+git push origin main  # Gitee:    https://gitee.com/zy_sir/THU-BDC2026.git
+```
+- Push immediately after committing — don't let local commits accumulate.
+- If a remote fails (e.g., `origin` HTTPS auth), push to the other, then fix the failing one.
+- Both remotes must be in sync with `main` before considering work done.
+
 ---
 
 ## Project context
