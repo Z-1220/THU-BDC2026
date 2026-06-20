@@ -247,6 +247,34 @@ python code/src/run_all_model.py run \
   --yaml_paths="models/Kronos/Kronos-small.yaml,models/Kronos/Kronos-base.yaml"
 ```
 
+## 当前 Champion 配置（已冻结）
+
+经过 E0-E5b + V1-V4 系统消融实验确定的最优配置，**修改前需充分理由**：
+
+| 组件 | 配置 | 来源 |
+|------|------|------|
+| ScreenProcessor | min_amount_rank=0.3, trend_ma=60, max_drawdown=0.15 | E0 baseline，删除后暴跌 -14.88pp |
+| CS Z-score | Winsorize(1%/99%) → 行业中性化 → Z-score | E2，保持排序尺度一致性 |
+| 权重分配 | Top-3 only [33.3%, 33.3%, 33.4%] | E5b champion，比 Top-5 等权 +4.63pp |
+| Kronos 变体 | small (24.7M)，Tokenizer 冻结 | Phase 2 微调实验结论 |
+
+**已证伪的方向（不可复用）**：
+- 市场状态仓位调节 (E3)：二元趋势/波动分类无效
+- 置信度仓位 (E4a/E4a')：分数量级不含可靠信号
+- 间距仓位 (E4b)：Top 间距信息量为零
+- Top-5 组合：rank4-5 贡献 < 15% 且增加波动
+
+**配置文件**：`model/result_model.yaml`（训练+推理）、`model/config_snapshot_champion.yaml`（快照）
+
+## 研究计划（下一步）
+
+两份研究计划已存档，等待执行：
+
+- [docs/research_plan_A_loss_alignment.md](docs/research_plan_A_loss_alignment.md) — 损失函数结构对齐：粗/细候选层 ranking、结构一致性正则化、11 个实验 + 负对照
+- [docs/research_plan_B_context_cross_section.md](docs/research_plan_B_context_cross_section.md) — 上下文/横截面/配权：Context Transformer、Cross-Sectional Transformer、Rank-Weighted→CardNN
+
+**执行顺序**：A（定 loss）→ B（做结构）。B 的损失函数假设来自 A 的结论，B 的结果反向验证 A 的设计。
+
 ## 组合优化策略（code/PortfolioBuilder/portfolio_strategy.py）
 
 `PyPortfolioOptStrategy`：独立类（不依赖 Qlib backtest 框架），通过 `set_price_data(close_df)` 注入价格数据。
@@ -276,15 +304,15 @@ CLI 入口：`python code/src/run_all_model.py run --yaml_paths="models/A/A.yaml
 
 ```
 sh train.sh              # uv run code/src/train.py   → model/result_model.pth + config_snapshot.yaml
-sh test.sh               # uv run code/src/test.py    → output/result.csv
+sh test.sh               # uv run code/src/commit.py  → output/result.csv
 docker buildx build ...  # 打包 docker
 docker compose up        # 验证 docker 可运行
 python test/test.py      # 批量评分所有提交的 .tar 文件
 ```
 
 - `train.py`：读 `model/result_model.yaml` → 训练 → 存 `result_model.pth` + `config_snapshot.yaml`
-- `commit.py`：读 `model/result_model.yaml` + `model/result_model.pth` → 推理 → `output/result.csv`
-- `test.sh` 调用 `code/src/test.py`（git status 显示该文件已删除 `D`），`commit.py` 可能是其重命名替代版
+- `commit.py`：读 `model/result_model.yaml` + `model/result_model.pth` → 推理 → `output/result.csv`（`test.sh` 直接调用它）
+- `code/src/test.py` 已删除，由 `commit.py` 替代
 
 ## 自评与批量评分
 
@@ -311,11 +339,11 @@ $$R_i = \frac{P_{i,T+5}^{open} - P_{i,T+1}^{open}}{P_{i,T+1}^{open}} \qquad R_{t
 | 阶段 | 日期 | 说明 |
 |------|------|------|
 | 报名组队 | 3/26 – **7/15 12:00** | 实名认证，截止后不可更改成员 |
-| 线上赛 A1 | **4/25 8:00 – 4/26 23:59** | 已过 |
-| 线上赛 A2 | **5/30 8:00 – 5/31 23:59** | **本次提交窗口** |
-| 线上赛 A3 | 6/27 8:00 – 6/28 23:59 | |
-| 线上赛 B | 8/1 8:00 – 8/2 23:59 | 最终排名（B 榜前 3 名在校生队直接晋级决赛） |
-| 模型/数据报备截止 | 7/18 | 开源模型和数据的链接+md5 报备到 data@tsinghua.edu.cn |
+| 线上赛 A1 | **4/25 8:00 – 4/26 23:59** | ✅ 已过 |
+| 线上赛 A2 | **5/30 8:00 – 5/31 23:59** | ✅ 已过（使用 champion 配置提交） |
+| 线上赛 A3 | **6/27 8:00 – 6/28 23:59** | 🔴 下一次提交窗口（7 天后） |
+| 线上赛 B | **8/1 8:00 – 8/2 23:59** | 最终排名（B 榜前 3 名在校生队直接晋级决赛） |
+| 模型/数据报备截止 | **7/18** | Kronos 开源链接+md5 报备到 data@tsinghua.edu.cn |
 | 决赛 | 8 月中下旬 | 现场答辩，清华 |
 
 ### 提交方式
@@ -378,9 +406,10 @@ uv sync                                          # 安装依赖
 source .venv/bin/activate                        # 激活环境
 sh init.sh                                       # CSV → Qlib 二进制 (temp/qlib_data/)
 sh train.sh                                      # 训练 → model/result_model.pth
-sh test.sh                                       # 推理 → output/result.csv
+sh test.sh                                       # 推理 (commit.py) → output/result.csv
 python code/src/run_all_model.py run \
   --yaml_paths="models/LightGBM/LightGBM.yaml"   # 单训多周评测
 python test/score_self.py                        # 自评分数
 docker compose up                                # Docker 验证
+python scripts/download_kronos_models.py         # 下载 Kronos 预训练权重
 ```

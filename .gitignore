@@ -331,6 +331,10 @@ output/result.csv
 test/output/result.csv
 code/output/
 
+# Data files (generated, not version-controlled)
+data/stock_data.csv
+data/train.csv
+
 # Model binaries
 model/result_model.pth
 model/kronos_phase1/
