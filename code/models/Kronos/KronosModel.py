@@ -65,6 +65,7 @@ class KronosModel(Model):
         top_p: float = 0.9,
         sample_count: int = 1,
         seed: int = 42,
+        cs_zscore: bool = False,
         **kwargs: Any,
     ) -> None:
         """
@@ -91,6 +92,7 @@ class KronosModel(Model):
         self.top_p = top_p
         self.sample_count = sample_count
         self.seed = seed
+        self.cs_zscore = cs_zscore
 
         self._set_seed(seed)
 
@@ -341,6 +343,18 @@ class KronosModel(Model):
             known = sec_df["sector"].notna()
             sec_df.loc[known, "score"] = sec_df.loc[known, "score"] - sector_medians[known]
             final_scores = sec_df["score"].tolist()
+
+        # ---- Cross-sectional Z-score (Stage 2) ----
+        if self.cs_zscore:
+            s = pd.Series(final_scores)
+            # Winsorize at 1%/99% (robust to extreme outliers)
+            lo, hi = s.quantile(0.01), s.quantile(0.99)
+            s = s.clip(lo, hi)
+            # Z-score: zero mean, unit std across the cross-section
+            m, std = s.mean(), s.std(ddof=0)
+            if std > 1e-8:
+                s = (s - m) / std
+            final_scores = s.tolist()
 
         return pd.Series(
             final_scores,

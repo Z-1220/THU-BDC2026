@@ -250,6 +250,74 @@ def get_eval_periods(
 
 
 # ============================================================
+# 市场状态 (Stage 3: Dynamic Position Sizing)
+# ============================================================
+
+def _load_hs300_index() -> pd.DataFrame | None:
+    """Load HS300 index daily data. Try Baostock-saved file first."""
+    csv_path = _PROJECT_ROOT / "data" / "hs300_index.csv"
+    if csv_path.exists():
+        df = pd.read_csv(csv_path, parse_dates=["date"])
+        df = df.sort_values("date")
+        df["close"] = df["close"].astype(float)
+        return df
+    return None
+
+
+def _compute_market_features(
+    index_df: pd.DataFrame, signal_date: pd.Timestamp
+) -> dict | None:
+    """Compute market state features at signal_date (only data ≤ signal_date)."""
+    hist = index_df[index_df["date"] <= signal_date]
+    if len(hist) < 60:
+        return None
+    hist = hist.tail(60)
+    closes = hist["close"].values
+    daily_rets = np.diff(closes) / closes[:-1]
+
+    # 1. 20-day cumulative return
+    ret_20d = float(np.prod(1 + daily_rets[-20:]) - 1) if len(daily_rets) >= 20 else float(np.prod(1 + daily_rets) - 1)
+
+    # 2. 20-day return volatility (annualized)
+    vol_20d = float(np.std(daily_rets[-20:])) if len(daily_rets) >= 20 else float(np.std(daily_rets))
+
+    # 3. Market breadth: proportion of closes above MA60
+    ma60 = np.mean(closes)
+    breadth = float(np.mean(closes > ma60))
+
+    # 4. Cross-sectional dispersion proxy: recent return volatility
+    recent = daily_rets[-5:] if len(daily_rets) >= 5 else daily_rets
+    dispersion = float(np.std(recent))
+
+    return {
+        "hs300_20d_return": ret_20d,
+        "hs300_20d_vol": vol_20d,
+        "market_breadth": breadth,
+        "dispersion": dispersion,
+    }
+
+
+def _classify_market_state(features: dict, vol_threshold: float) -> tuple[int, int]:
+    """Classify market state: (trend_flag, vol_flag)."""
+    trend = 1 if features["hs300_20d_return"] > 0 else 0
+    vol = 1 if features["hs300_20d_vol"] > vol_threshold else 0
+    return (trend, vol)
+
+
+def _get_exposure(state: tuple[int, int], version: str = "v1") -> float:
+    """Map market state → total exposure."""
+    if version == "v1":
+        mapping = {(1, 0): 1.0, (1, 1): 0.8, (0, 0): 0.6, (0, 1): 0.2}
+    elif version == "v2":
+        mapping = {(1, 0): 1.0, (1, 1): 0.8, (0, 0): 0.4, (0, 1): 0.0}
+    else:
+        mapping = {(1, 0): 1.0, (1, 1): 1.0, (0, 0): 1.0, (0, 1): 1.0}
+    return mapping.get(state, 1.0)
+
+
+_STATE_LABELS = {(1, 0): "A_强势低波", (1, 1): "B_强势高波", (0, 0): "C_弱势低波", (0, 1): "D_弱势高波"}
+
+# ============================================================
 # 核心评测
 # ============================================================
 
@@ -327,6 +395,62 @@ def evaluate_config(task_cfg: dict, eval_cfg: dict) -> dict:
     print(f"        {len(periods)} evaluation periods (hold={hold_days}d): "
           f"{periods[0]['signal_day'].date()} → {periods[-1]['sell_day'].date()}")
 
+    # ── 6.5) 分数统计与动态仓位 (E4: Confidence/Gap Exposure) ──
+    exposure_mode = eval_cfg.get("exposure_mode", None)
+    market_features_map: dict = {}
+    score_stats_map: dict = {}  # sd -> {top5_mean_z, gap_1_5, gap_1_10, ...}
+
+    if exposure_mode in ("confidence", "gap", "conf_gap"):
+        # Pre-compute score statistics for each signal date
+        all_gaps = []
+        for p in periods:
+            sd = p["signal_day"]
+            try:
+                dp = pred.xs(sd, level="datetime")
+            except KeyError:
+                continue
+            if dp.empty or dp.isna().all():
+                continue
+            top5 = dp.nlargest(5)
+            top10 = dp.nlargest(10)
+            stats = {
+                "top1_score_z": float(top5.iloc[0]),
+                "top5_score_z": float(top5.iloc[-1]),
+                "top5_mean_z": float(top5.mean()),
+                "top5_std_z": float(top5.std(ddof=0)),
+                "score_gap_1_5": float(top5.iloc[0] - top5.iloc[-1]),
+                "score_gap_1_10": float(top5.iloc[0] - top10.iloc[-1]),
+            }
+            score_stats_map[sd] = stats
+            all_gaps.append(stats["score_gap_1_5"])
+
+        # Compute reference values (median across test weeks)
+        gap_ref = float(np.median(all_gaps)) if all_gaps else 0.01
+        all_conf_means = [s["top5_mean_z"] for s in score_stats_map.values()]
+        conf_baseline = float(np.mean(all_conf_means)) if all_conf_means else 0.0
+
+        for sd, stats in score_stats_map.items():
+            stats["gap_norm"] = min(stats["score_gap_1_5"] / (2.0 * gap_ref + 1e-8), 1.0)
+            # Confidence-based exposure (centered: high conf = above avg, low = below)
+            conf_centered = stats["top5_mean_z"] - conf_baseline
+            g_conf = np.clip(1.0 + 0.15 * conf_centered, 0.7, 1.3)
+            # Gap-based exposure
+            g_gap = 0.8 + 0.4 * stats["gap_norm"]
+            stats["conf_centered"] = float(conf_centered)
+            stats["g_conf"] = float(g_conf)
+            stats["g_gap"] = float(g_gap)
+            # Combined exposure
+            if exposure_mode == "confidence":
+                stats["exposure"] = float(g_conf)
+            elif exposure_mode == "gap":
+                stats["exposure"] = float(g_gap)
+            else:  # conf_gap
+                stats["exposure"] = float(np.clip(g_conf * g_gap, 0.6, 1.5))
+
+        print(f"        E4 ({exposure_mode}): conf_baseline={conf_baseline:.4f}, "
+              f"gap_ref={gap_ref:.4f}, "
+              f"avg_exposure={np.mean([s['exposure'] for s in score_stats_map.values()]):.2%}")
+
     # ── 7) 逐周评测 ──
     details = []
     ranking_metrics = []  # per-week ranking metrics
@@ -398,6 +522,23 @@ def evaluate_config(task_cfg: dict, eval_cfg: dict) -> dict:
             top5 = dp.nlargest(5)
             w = {s: 0.2 for s in top5.index}
 
+        # ---- Stage 5b: Rank-Weighted Portfolio ----
+        if exposure_mode == "rank_weighted" and not strategy:
+            top5_sorted = dp.nlargest(5)
+            rank_weights = eval_cfg.get("rank_weights", [0.35, 0.25, 0.18, 0.12, 0.10])
+            # If fewer than 5 weights (e.g., top3-only), select fewer stocks
+            k = len(rank_weights)
+            w = {s: rank_weights[i] for i, s in enumerate(top5_sorted.head(k).index)}
+
+        # ---- Stage 3/4: Dynamic Position Sizing ----
+        g = 1.0  # default: full exposure
+        if exposure_mode and sd in market_features_map:
+            g = market_features_map[sd]["exposure"]
+        elif exposure_mode and sd in score_stats_map:
+            g = score_stats_map[sd]["exposure"]
+        if g != 1.0 and exposure_mode != "rank_weighted":
+            w = {s: g / max(len(w), 1) for s in w}
+
         if not w:
             details.append(_mk_detail(p, 0.0, "no_weights"))
             continue
@@ -417,18 +558,133 @@ def evaluate_config(task_cfg: dict, eval_cfg: dict) -> dict:
             details.append(_mk_detail(p, 0.0, "suspended"))
             continue
 
-        # 计算周收益
+        # 计算周收益 + rank贡献 (V4)
         stock_rets = (sp[valid] / bp[valid]) - 1.0
         total_weight = sum(w.get(s, 0.0) for s in stock_rets.index)
         port_ret = sum(w.get(s, 0.0) * stock_rets[s] for s in stock_rets.index)
+        # Per-rank contribution
+        rank_contrib = {}
+        for i, s in enumerate(sel):
+            if s in stock_rets.index and s in w:
+                rank_contrib[f"rank{i+1}_contrib"] = round(w[s] * stock_rets[s], 6)
 
-        details.append(_mk_detail(
-            p, port_ret, "ok",
-            top5=sel, weight=round(total_weight, 4), n_valid=int(valid.sum()),
-        ))
+        extra = {
+            "top5": sel, "weight": round(total_weight, 4),
+            "n_valid": int(valid.sum()),
+            **rank_contrib,
+        }
+        if exposure_mode and sd in market_features_map:
+            mf = market_features_map[sd]
+            extra["exposure"] = round(mf["exposure"], 2)
+            extra["cash_ratio"] = round(1.0 - total_weight, 4)
+            extra["state"] = _STATE_LABELS[mf["state"]]
+        if exposure_mode and sd in score_stats_map:
+            ss = score_stats_map[sd]
+            extra["exposure"] = round(ss["exposure"], 2)
+            extra["cash_ratio"] = round(1.0 - total_weight, 4)
+            extra["top5_mean_z"] = round(ss["top5_mean_z"], 4)
+            extra["conf_centered"] = round(ss.get("conf_centered", ss["top5_mean_z"]), 4)
+            extra["score_gap_1_5"] = round(ss["score_gap_1_5"], 4)
+            extra["g_conf"] = round(ss["g_conf"], 4)
+            extra["g_gap"] = round(ss.get("g_gap", 1.0), 4)
+
+        details.append(_mk_detail(p, port_ret, "ok", **extra))
 
     returns = pd.Series([d["return"] for d in details])
-    result = {"metrics": _calc_metrics(returns), "weekly_details": details, "error": None}
+    result = {"metrics": _calc_metrics(returns), "weekly_details": details, "error": None, "_score_stats": score_stats_map}
+
+    # ---- 市场状态仓位指标 (Stage 3) ----
+    if exposure_mode and (market_features_map or score_stats_map):
+        exposures = [d.get("exposure", 1.0) for d in details]
+        cash_ratios = [d.get("cash_ratio", 0.0) for d in details]
+        em_dict = {
+            "average_exposure": round(float(np.mean(exposures)), 4) if exposures else 1.0,
+            "average_cash_ratio": round(float(np.mean(cash_ratios)), 4) if cash_ratios else 0.0,
+        }
+        if market_features_map:
+            bull_rets, bear_rets = [], []
+            for d in details:
+                sd = pd.Timestamp(d["signal_day"])
+                if sd in market_features_map:
+                    f = market_features_map[sd]["features"]
+                    if f["hs300_20d_return"] > 0:
+                        bull_rets.append(d["return"])
+                    else:
+                        bear_rets.append(d["return"])
+            em_dict.update({
+                "bull_market_return": round(float(np.mean(bull_rets)), 6) if bull_rets else 0.0,
+                "bear_market_return": round(float(np.mean(bear_rets)), 6) if bear_rets else 0.0,
+                "bull_weeks": len(bull_rets),
+                "bear_weeks": len(bear_rets),
+            })
+            sc = {}
+            for d in details:
+                st = d.get("state", "unknown")
+                sc[st] = sc.get(st, 0) + 1
+            em_dict["state_counts"] = sc
+        result["exposure_metrics"] = em_dict
+
+    # ---- E4 信号诊断相关性 ----
+    if score_stats_map:
+        confs, gaps, rets = [], [], []
+        for d in details:
+            sd = pd.Timestamp(d["signal_day"])
+            if sd in score_stats_map:
+                confs.append(score_stats_map[sd]["top5_mean_z"])
+                gaps.append(score_stats_map[sd]["score_gap_1_5"])
+                rets.append(d["return"])
+        result["e4_diagnostics"] = {
+            "corr_conf_return": round(float(np.corrcoef(confs, rets)[0, 1]), 4) if len(confs) >= 3 else 0.0,
+            "corr_gap_return": round(float(np.corrcoef(gaps, rets)[0, 1]), 4) if len(gaps) >= 3 else 0.0,
+        }
+
+    # ---- E5a: Rank Stability Analysis ----
+    rank_returns: dict[int, list[float]] = {1: [], 3: [], 5: [], 10: [], 20: []}
+    for p in periods:
+        sd, bd, sed = p["signal_day"], p["buy_day"], p["sell_day"]
+        try:
+            dp = pred.xs(sd, level="datetime")
+        except KeyError:
+            continue
+        if dp.empty or dp.isna().all():
+            continue
+        sorted_stocks = dp.sort_values(ascending=False)
+        for k in rank_returns:
+            top_k = sorted_stocks.head(k).index
+            top_k = top_k.intersection(price_df.index)
+            bp = price_df.loc[top_k, bd]
+            sp = price_df.loc[top_k, sed]
+            valid = bp.notna() & sp.notna() & (bp > 0)
+            if valid.sum() == 0:
+                continue
+            rets = (sp[valid] / bp[valid]) - 1.0
+            rank_returns[k].append(float(rets.mean()))
+    if rank_returns[5]:
+        result["rank_stability"] = {
+            f"top{k}_mean_ret": round(float(np.mean(rank_returns[k])), 6)
+            for k in rank_returns
+        }
+        result["rank_stability"].update({
+            f"top{k}_std_ret": round(float(np.std(rank_returns[k], ddof=0)), 6)
+            for k in rank_returns
+        })
+        result["rank_stability"].update({
+            f"top{k}_pos_rate": round(float(np.mean([r > 0 for r in rank_returns[k]])), 4)
+            for k in rank_returns
+        })
+        result["rank_stability"]["n_weeks"] = len(rank_returns[5])
+
+    # ---- V4: Rank Contribution Attribution ----
+    if details and "rank1_contrib" in details[0]:
+        contrib_sums = {f"rank{i+1}_contrib": 0.0 for i in range(5)}
+        for d in details:
+            for k in contrib_sums:
+                contrib_sums[k] += d.get(k, 0.0)
+        total_abs = sum(abs(v) for v in contrib_sums.values()) + 1e-12
+        result["rank_attribution"] = {
+            f"rank{i+1}_pct": round(contrib_sums[f"rank{i+1}_contrib"] / total_abs * 100, 1)
+            for i in range(5)
+        }
 
     # ---- 聚合排名指标 ----
     if ranking_metrics:
@@ -656,17 +912,53 @@ class ModelRunner:
                 print(f"     RankIC: {rm.get('rank_ic_mean', 0):.4f} (IC>0: {rm.get('rank_ic_positive_rate', 0):.1%})")
                 print(f"     Hit@5: {rm.get('hit5_mean', 0):.1%}  |  Recall@10: {rm.get('top10_recall_mean', 0):.1%}  |  NDCG@5: {rm.get('ndcg5_mean', 0):.4f}")
 
+            # 动态仓位指标 (Stage 3/4)
+            em = result.get("exposure_metrics", {})
+            e4 = result.get("e4_diagnostics", {})
+            if em and em.get("state_counts"):
+                print(f"     Avg Exposure: {em.get('average_exposure', 0):.2%}  |  "
+                      f"Avg Cash: {em.get('average_cash_ratio', 0):.2%}")
+                print(f"     Bull ({em.get('bull_weeks', 0)}W): {em.get('bull_market_return', 0):+.4f}"
+                      f"  |  Bear ({em.get('bear_weeks', 0)}W): {em.get('bear_market_return', 0):+.4f}")
+                sc = em.get("state_counts", {})
+                print(f"     States: {sc}")
+            if e4:
+                print(f"     Corr(top5_mean_z, ret): {e4.get('corr_conf_return', 0):+.4f}"
+                      f"  |  Corr(gap, ret): {e4.get('corr_gap_return', 0):+.4f}")
+            # E5a: Rank Stability
+            rs = result.get("rank_stability", {})
+            if rs:
+                print(f"     Rank Stability ({rs.get('n_weeks', 0)}W):")
+                print(f"       {'Rank':>6} {'MeanRet':>8} {'Std':>8} {'PosRate':>8}")
+                for k in [1, 3, 5, 10, 20]:
+                    print(f"       Top{k:<3}  {rs.get(f'top{k}_mean_ret', 0):+8.4f} "
+                          f"{rs.get(f'top{k}_std_ret', 0):8.4f} {rs.get(f'top{k}_pos_rate', 0):8.1%}")
+            # V4: Rank Contribution
+            ra = result.get("rank_attribution", {})
+            if ra:
+                print(f"     Rank Contribution: {ra}")
+
             # 每周明细
             for d in result.get("weekly_details", []):
                 icon = "✅" if d["status"] == "ok" else "⚠️"
                 t5 = f"  top5={d['top5']}" if "top5" in d else ""
+                extra = ""
+                if "exposure" in d:
+                    if "state" in d:
+                        extra = f"  exp={d['exposure']:.1f} cash={d.get('cash_ratio', 0):.2f} [{d['state']}]"
+                    elif "top5_mean_z" in d:
+                        cc = d.get("conf_centered", d["top5_mean_z"])
+                        extra = (f"  exp={d['exposure']:.2f}"
+                                 f" conf_c={cc:+.3f}"
+                                 f" gap={d['score_gap_1_5']:.3f}")
                 print(f"     {icon} {d['signal_day']} → {d['sell_day']}  "
-                      f"ret={d['return']:+.4f}{t5}")
+                      f"ret={d['return']:+.4f}{t5}{extra}")
 
             summary_rows.append({
                 "model_name": model_name,
                 "metrics": m,
                 "ranking_metrics": result.get("ranking_metrics", {}),
+                "exposure_metrics": result.get("exposure_metrics", {}),
                 "error": result.get("error"),
             })
 
@@ -674,6 +966,34 @@ class ModelRunner:
             if result.get("weekly_details"):
                 pd.DataFrame(result["weekly_details"]).to_csv(
                     run_dir / f"{model_name}_weekly.csv",
+                    index=False, encoding="utf-8-sig",
+                )
+            # 保存 E4 信号诊断 CSV
+            score_stats = result.get("_score_stats", {})
+            if score_stats:
+                diag_rows = []
+                for d in result.get("weekly_details", []):
+                    sd = pd.Timestamp(d["signal_day"])
+                    row = {"date": d["signal_day"], "weekly_return": d["return"]}
+                    if sd in score_stats:
+                        ss = score_stats[sd]
+                        row.update({
+                            "top1_score_z": ss["top1_score_z"],
+                            "top5_score_z": ss["top5_score_z"],
+                            "top5_mean_z": ss["top5_mean_z"],
+                            "top5_std_z": ss["top5_std_z"],
+                            "score_gap_1_5": ss["score_gap_1_5"],
+                            "score_gap_1_10": ss["score_gap_1_10"],
+                            "gap_norm": ss["gap_norm"],
+                            "g_conf": ss["g_conf"],
+                            "g_gap": ss.get("g_gap", 1.0),
+                            "exposure": ss["exposure"],
+                        })
+                    if "top5" in d:
+                        row["selected_stocks"] = ",".join(d["top5"])
+                    diag_rows.append(row)
+                pd.DataFrame(diag_rows).to_csv(
+                    run_dir / f"{model_name}_signal_diagnostics.csv",
                     index=False, encoding="utf-8-sig",
                 )
 

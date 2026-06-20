@@ -68,6 +68,51 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## 5. Git Version Management (MANDATORY)
+
+**Every meaningful change must be committed to git.** This is non-negotiable.
+
+### When to commit
+- **Before and after each experiment**: `E0 baseline`, `E1 ScreenProcessor removal`, etc.
+- **After any config change**: YAML edits, model parameter changes, new experiment configs
+- **After any code change**: model logic, evaluation code, data pipeline
+- **After any documentation change**: README, CLAUDE.md, research reports
+- **Before any destructive operation**: deleting files, resetting, rebasing
+
+### How to commit
+- **One logical change per commit.** Don't batch unrelated changes.
+- **Descriptive messages** in English or Chinese, prefix with stage/experiment ID:
+  - `feat: E5b rank-weighted portfolio (+4.63pp vs equal-weight)`
+  - `fix: commit.py support rank_weights from evaluation config`
+  - `docs: merge README.md, update to champion Top3-only config`
+  - `cleanup: remove 46 stale experiment runs from run_all_model/`
+- **Never commit**: `.venv/`, `__pycache__/`, `*.pth`, `*.tar`, `data/stock_data.csv`, `data/train.csv`, `temp/`, `output/`, `.env`, secrets, tokens
+- **Check .gitignore before committing.** If a new pattern should be ignored, add it.
+
+### Before committing
+```bash
+git status          # What changed?
+git diff --stat     # How much changed?
+git diff            # What exactly changed? Review every hunk.
+```
+
+### After committing
+```bash
+git status          # Clean?
+git log --oneline -5  # Verify commit history
+```
+
+### Branches
+- `main` is the source of truth. Always commit to `main` directly for this project.
+- If experimenting on a branch, merge back to `main` after validation.
+- Never leave `main` in a broken state.
+
+### Recovery
+- If a commit is wrong, `git revert` (don't `git reset --hard` on shared history).
+- Uncommitted work is at risk. Commit early, commit often.
+
+---
+
 ## Project context
 
 THU-BDC2026 比赛：学习沪深300成分股排序，输出 5 只股票及权重（权重和 ≤1），5 日持有期。基于 Qlib 框架，YAML 驱动流程。

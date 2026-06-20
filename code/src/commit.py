@@ -120,12 +120,20 @@ def generate_scores(model: Any, dataset: Any) -> pd.Series:
 
 
 def optimize_portfolio(scores: pd.Series, config: dict[str, Any]) -> dict[str, float]:
-    """根据 YAML 中的 task.strategy 字段执行组合优化。
+    """根据 YAML 中的 task.strategy / task.evaluation 字段执行组合优化。
 
     注意：推理阶段无历史价格数据，PyPortfolioOpt 优化器不可用，
     自动降级为分数最高的 top-k 等权。
     """
+    eval_cfg = config.get("task", {}).get("evaluation", {})
     port_cfg = config.get("task", {}).get("strategy", {})
+
+    # Check for rank_weighted mode (champion config)
+    if eval_cfg.get("exposure_mode") == "rank_weighted":
+        rank_weights = eval_cfg.get("rank_weights", [0.333, 0.333, 0.334])
+        top = scores.nlargest(len(rank_weights))
+        return {c: float(rank_weights[i]) for i, c in enumerate(top.index)}
+
     top_k = port_cfg.get("top_k", 5)
     optimizer_name = port_cfg.get("optimizer", "equal")
 
