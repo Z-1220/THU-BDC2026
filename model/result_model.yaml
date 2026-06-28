@@ -28,7 +28,7 @@ task:
         kwargs:
           instruments: "all"
           start_time: "2022-01-01"
-          end_time: "2026-06-17"
+          end_time: "2026-06-26"
           fit_start_time: "2022-01-01"
           fit_end_time: "2025-12-31"
           infer_processors:
@@ -54,6 +54,6 @@ task:
 
   evaluation:
     universe: "all"
-    data_end: "2026-06-17"
+    data_end: "2026-06-26"
     exposure_mode: "rank_weighted"
     rank_weights: [0.333, 0.333, 0.334]
