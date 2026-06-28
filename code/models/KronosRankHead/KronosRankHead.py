@@ -501,12 +501,15 @@ class KronosRankHeadModel(Model):
                 labels = []
                 for inst in instruments:
                     try:
-                        label_val = dt_data.loc[inst]
-                        if hasattr(label_val, "iloc"):
-                            label_val = float(label_val.iloc[:, -1].iloc[0])
+                        row = dt_data.loc[inst]
+                        if hasattr(row, 'index') and ('label', 'LABEL0') in row.index:
+                            label_val = float(row[('label', 'LABEL0')])
+                        elif hasattr(row, 'iloc'):
+                            # Multi-column: last column is label
+                            label_val = float(row.iloc[-1])
                         else:
-                            label_val = float(label_val)
-                    except (KeyError, IndexError):
+                            label_val = float(row)
+                    except (KeyError, IndexError, TypeError):
                         continue
 
                     score_val = float(dt_scores.loc[inst])
