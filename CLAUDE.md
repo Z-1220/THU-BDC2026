@@ -283,7 +283,7 @@ python code/src/run_all_model.py run \
 - 全量上下文 (市场+行业+CS+流动性) 有 1+1+1 > 3 的协同效应
 - H1 (外部上下文) ✅ 证实, H2 (横截面 Transformer) ✅ 证实
 - Context Transformer 架构本身有价值（Zero Context 仍得 Sharpe 2.40）
-- 结果基于 20 日动量代理评分，需真 Kronos 嵌入验证
+- 结果基于 20 日动量代理评分，需真 Kronos 嵌入验证（→ [Plan C](docs/research_plan_C_production_integration.md)）
 
 ### 研究实验框架
 
