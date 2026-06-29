@@ -266,14 +266,38 @@ python code/src/run_all_model.py run \
 
 **配置文件**：`model/result_model.yaml`（训练+推理）、`model/config_snapshot_champion.yaml`（快照）
 
-## 研究计划（下一步）
+## 研究计划（✅ 已完成）
 
-两份研究计划已存档，等待执行：
+两份研究计划已执行完毕（2026-06-29），完整报告见 [docs/research_report_20260628.md](docs/research_report_20260628.md)：
 
-- [docs/research_plan_A_loss_alignment.md](docs/research_plan_A_loss_alignment.md) — 损失函数结构对齐：粗/细候选层 ranking、结构一致性正则化、11 个实验 + 负对照
-- [docs/research_plan_B_context_cross_section.md](docs/research_plan_B_context_cross_section.md) — 上下文/横截面/配权：Context Transformer、Cross-Sectional Transformer、Rank-Weighted→CardNN
+- [docs/research_plan_A_loss_alignment.md](docs/research_plan_A_loss_alignment.md) — ✅ 已完成 10 个实验
+- [docs/research_plan_B_context_cross_section.md](docs/research_plan_B_context_cross_section.md) — ✅ 已完成 7 个实验
 
-**执行顺序**：A（定 loss）→ B（做结构）。B 的损失函数假设来自 A 的结论，B 的结果反向验证 A 的设计。
+### Plan A 结论
+- **NDCG Approximation** 是最佳结构化损失（首次运行 Sharpe 3.11 vs MSE -0.81）
+- 复杂层次结构 (Coarse-to-Fine) 和成对损失 (Pairwise) 无法超越简单 MSE
+- MSE 回归是不可忽视的强基线
+
+### Plan B 结论（🏆 最佳组合）
+- **Context Transformer + Full Context + NDCG = Sharpe 5.47, CumRet +57.90%, Win% 85.7%**
+- 全量上下文 (市场+行业+CS+流动性) 有 1+1+1 > 3 的协同效应
+- H1 (外部上下文) ✅ 证实, H2 (横截面 Transformer) ✅ 证实
+- Context Transformer 架构本身有价值（Zero Context 仍得 Sharpe 2.40）
+- 结果基于 20 日动量代理评分，需真 Kronos 嵌入验证
+
+### 研究实验框架
+
+**快速实验运行器**：`python code/src/run_research_experiments.py [plan_a|plan_b|all]`
+- 使用动量得分作为 Kronos 代理，无需等待 Kronos 推理
+- Per-date-group 训练保证排序损失的正确性
+- 自动对比分析 + 更新 `model/result_model.yaml` 注释
+- 结果输出：`output/research/plan_*_results_*.json`
+
+**新模型**：
+- `code/models/KronosRankHead/` — Plan A: 12 种损失函数的可训练 MLP Ranking Head
+- `code/models/KronosContext/` — Plan B: Context Transformer ([CLS] + stock tokens + self-attention)
+
+**Kronos 评分缓存**：`python scripts/cache_kronos_scores.py` — 预计算 Kronos 评分避免重复推理
 
 ## 组合优化策略（code/PortfolioBuilder/portfolio_strategy.py）
 
@@ -340,9 +364,9 @@ $$R_i = \frac{P_{i,T+5}^{open} - P_{i,T+1}^{open}}{P_{i,T+1}^{open}} \qquad R_{t
 |------|------|------|
 | 报名组队 | 3/26 – **7/15 12:00** | 实名认证，截止后不可更改成员 |
 | 线上赛 A1 | **4/25 8:00 – 4/26 23:59** | ✅ 已过 |
-| 线上赛 A2 | **5/30 8:00 – 5/31 23:59** | ✅ 已过（使用 champion 配置提交） |
-| 线上赛 A3 | **6/27 8:00 – 6/28 23:59** | 🔴 下一次提交窗口（7 天后） |
-| 线上赛 B | **8/1 8:00 – 8/2 23:59** | 最终排名（B 榜前 3 名在校生队直接晋级决赛） |
+| 线上赛 A2 | **5/30 8:00 – 5/31 23:59** | ✅ 已过 |
+| 线上赛 A3 | **6/27 8:00 – 6/28 23:59** | ✅ 已过（NDCG loss 研究完成，Kronos-small + Top-3） |
+| 线上赛 B | **8/1 8:00 – 8/2 23:59** | 🔴 最终排名（B 榜前 3 名在校生队直接晋级决赛） |
 | 模型/数据报备截止 | **7/18** | Kronos 开源链接+md5 报备到 data@tsinghua.edu.cn |
 | 决赛 | 8 月中下旬 | 现场答辩，清华 |
 
@@ -402,14 +426,28 @@ $$R_i = \frac{P_{i,T+5}^{open} - P_{i,T+1}^{open}}{P_{i,T+1}^{open}} \qquad R_{t
 ## 常用命令速查
 
 ```bash
+# 环境与数据
 uv sync                                          # 安装依赖
 source .venv/bin/activate                        # 激活环境
 sh init.sh                                       # CSV → Qlib 二进制 (temp/qlib_data/)
+sh scripts/update_data.sh                        # 更新 Baostock 数据 → train.csv → Qlib
+
+# 训练与推理
 sh train.sh                                      # 训练 → model/result_model.pth
 sh test.sh                                       # 推理 (commit.py) → output/result.csv
+python test/score_self.py                        # 自评分数
+
+# 实验评测
 python code/src/run_all_model.py run \
   --yaml_paths="models/LightGBM/LightGBM.yaml"   # 单训多周评测
-python test/score_self.py                        # 自评分数
+
+# 研究实验 (快速验证，使用动量代理)
+python code/src/run_research_experiments.py all  # Plan A + Plan B 全量实验
+python code/src/run_research_experiments.py plan_a  # 仅 Plan A 损失函数
+python code/src/run_research_experiments.py plan_b  # 仅 Plan B 上下文
+
+# Docker 与模型
 docker compose up                                # Docker 验证
 python scripts/download_kronos_models.py         # 下载 Kronos 预训练权重
+python scripts/cache_kronos_scores.py            # 预计算 Kronos 评分缓存
 ```
