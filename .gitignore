@@ -327,7 +327,7 @@ model/kronos_finetuned/
 .idea/*.tar
 
 # Competition output artifacts
-output/result.csv
+# output/result.csv — tracked for submission record
 test/output/result.csv
 code/output/
 
