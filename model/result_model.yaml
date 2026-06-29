@@ -1,3 +1,8 @@
+# Champion config — auto-updated by research pipeline (2026-06-29 01:10)
+# Best loss: mse (Plan A experiment winner)
+# Context mode: B-C5 (Full Context) (Plan B experiment winner)
+# See: output/research/champion_update.json for details
+
 qlib_init:
   provider_uri: "./temp/qlib_data"
   region: cn

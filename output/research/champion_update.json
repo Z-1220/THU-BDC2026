@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-06-29T01:10:18.564783",
+  "best_plan_a": {
+    "name": "A-E0 (MSE Baseline)",
+    "sharpe": 2.768263113852809,
+    "cum_return": 0.2910336689166253,
+    "loss_type": "mse"
+  },
+  "best_plan_b": {
+    "name": "B-C5 (Full Context)",
+    "sharpe": 5.467323130897007,
+    "cum_return": 0.5790242494655038
+  },
+  "context_adds_value": true,
+  "recommended_loss": "mse",
+  "config_updated": true
+}
