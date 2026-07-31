@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "code"))
 
 from qlib import init as qlib_init
 from qlib.data.dataset import DatasetH
-from qlib.data.dataset.processor import DropnaLabel
+from qlib.data.dataset.processor import DropnaLabel, Fillna
 
 from handlers.stock_handler import StockDataHandler
 from processors.custom_processor import FridayFilterProcessor, ScreenProcessor
@@ -64,7 +64,7 @@ def main():
         fit_end_time="2025-12-31",
         infer_processors=[
             FridayFilterProcessor(),
-            type("Fillna", (), {"__call__": lambda s, df: df.fillna(0)})() if False else None,
+            Fillna(fields_group="feature"),
             ScreenProcessor(min_amount_rank=0.3, trend_ma=60, max_drawdown=0.15),
         ],
         learn_processors=[DropnaLabel(fields_group="label")],

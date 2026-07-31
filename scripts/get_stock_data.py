@@ -189,12 +189,12 @@ def download_weekly_data():
                 df = get_stock_history_weekly(bs_code, start_date, end_date)
                 if df is not None and not df.empty:
                     all_data.append(df)
-                    print(f"✓ {len(df)} 周")
+                    print(f"[OK] {len(df)} 周")
                 else:
-                    print("✗ 无数据")
+                    print("[FAIL] 无数据")
                     failed.append((bs_code, stock_name))
             except Exception as e:
-                print(f"✗ {e}")
+                print(f"[FAIL] {e}")
                 failed.append((bs_code, stock_name))
 
             if len(all_data) > 0 and len(all_data) % 20 == 0:
@@ -446,12 +446,12 @@ def main():
                     
                     total_new_records += len(new_data)
                     success_count += 1
-                    print(f"  ✓ 获取成功，新增 {len(new_data)} 条记录")
+                    print(f"  [OK] 获取成功，新增 {len(new_data)} 条记录")
                 else:
-                    print(f"  ✗ 无新数据")
-                    
+                    print(f"  [FAIL] 无新数据")
+
             except Exception as e:
-                print(f"  ✗ 失败: {e}")
+                print(f"  [FAIL] {e}")
                 failed_stocks.append((bs_code, stock_name))
             
             # 每10只成功获取的股票暂停一下
@@ -480,7 +480,7 @@ def main():
                 # 验证同一股票数据是否相邻
                 stock_blocks = df.groupby('股票代码').apply(lambda x: x.index.max() - x.index.min() + 1).sum()
                 if stock_blocks == len(df):
-                    print("  - 数据组织: ✓ 同一股票数据相邻")
+                    print("  - 数据组织: [OK] 同一股票数据相邻")
                 else:
                     print(f"  - 数据组织: 警告，股票数据块总长度({stock_blocks})与总行数({len(df)})不一致")
                 
