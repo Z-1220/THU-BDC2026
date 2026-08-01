@@ -69,5 +69,5 @@ task:
   evaluation:
     universe: "all"
     data_end: "2026-07-31"
-    exposure_mode: "rank_weighted"
+    exposure_mode: "auto"
     rank_weights: [0.5, 0.5]

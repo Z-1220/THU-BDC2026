@@ -15,6 +15,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+import json
 import numpy as np
 import pandas as pd
 import torch
@@ -207,6 +208,42 @@ def build_blend_rev05_weights(
     return weights, diag
 
 
+def classify_market_state(signal_date: str) -> str:
+    """Classify 科技/老经济 x 趋势/轮动 (same logic as compute_auto_k.py)."""
+    stock_df = pd.read_csv(
+        PROJECT_ROOT / "data" / "stock_data.csv",
+        encoding="utf-8-sig", parse_dates=["日期"], dtype={"股票代码": str},
+    )
+    stock_df["code"] = stock_df["股票代码"].str.zfill(6)
+    sdf = pd.read_csv(PROJECT_ROOT / "resource" / "行业分类.csv",
+                      encoding="utf-8-sig", dtype={"证券代码": str})
+    sector_map = dict(zip(sdf["证券代码"], sdf["中证一级行业分类简称"]))
+    closes = stock_df.pivot_table(index="日期", columns="code", values="收盘",
+                                  aggfunc="last").sort_index()
+    dt = pd.Timestamp(signal_date)
+    if dt not in closes.index:
+        prior = closes.index[closes.index <= dt]
+        if len(prior) == 0:
+            return "老经济-轮动"
+        dt = prior[-1]
+    pos = closes.index.get_loc(dt)
+    ret20 = closes.iloc[pos] / closes.iloc[pos - 20] - 1
+    sec = ret20.groupby(ret20.index.map(lambda c: sector_map.get(c, "未知"))).mean()
+    tech_rel = float(sec.get("信息技术", 0.0) - np.mean(
+        [sec.get(s, 0.0) for s in ("主要消费", "金融")]))
+
+    idx = closes.index
+    fridays = [d for d in idx[:pos] if d.dayofweek == 4 and idx.get_loc(d) + 5 < len(idx)]
+    winners = []
+    for f in fridays[-2:]:
+        i = idx.get_loc(f)
+        wr = (closes.iloc[i + 5] / closes.iloc[i + 1] - 1).dropna()
+        ws = wr.groupby(wr.index.map(lambda c: sector_map.get(c, "未知"))).mean()
+        winners.append(ws.idxmax() if len(ws) else None)
+    repeat = int(len(winners) == 2 and winners[0] == winners[1])
+    return ("科技" if tech_rel > 0 else "老经济") + ("-趋势" if repeat else "-轮动")
+
+
 def save_result(weights: dict[str, float], output_path: Path) -> None:
     """保存 result.csv（stock_id 为 6 位数字字符串）。"""
     result = []
@@ -263,6 +300,15 @@ def main() -> None:
             f"[test] Plan D blend_rev05 配权: {len(weights)} 只股票, "
             f"候选 {diag.get('n_candidates')}, 标的 {diag.get('picks')}"
         )
+    elif eval_cfg.get("exposure_mode") == "auto":
+        table_path = PROJECT_ROOT / "model" / "auto_k_table.json"
+        table = json.loads(table_path.read_text(encoding="utf-8"))
+        state = classify_market_state(test_date)
+        K = int(table.get(state, {}).get("best_k", 3))
+        top = scores.nlargest(K)
+        w = 1.0 / K
+        weights = {c: float(w) for c in top.index}
+        print(f"[test] auto 配权: state={state}, K={K}, 组合={list(weights)}")
     else:
         weights = optimize_portfolio(scores, cfg)
         print(f"[test] 优化后持有 {len(weights)} 只股票，权重: {weights}")
