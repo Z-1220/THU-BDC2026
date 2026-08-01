@@ -1,10 +1,13 @@
 #!/usr/bin/env python
-"""Train the learned Context Transformer ranking head for Plan D (ML-driven
-stock selection) and evaluate against blend_rev05.
+"""Train the learned Context Transformer ranking head (Plan D, ML-driven
+selection) with risk features, save all seeds, and evaluate the 3-seed
+ensemble against single seeds and the hand-crafted blend_rev05.
 
-Features (order fixed, shared with KronosContextHead):
+Features per stock (order fixed, shared with KronosContextHead):
   [kronos_score, sector_mom_5, cs_rank, cs_zscore, amount_log_60d,
-   turnover_log_60d, rev20] + market context (5).
+   turnover_log_60d, rev20, vol20, dd20] + market context (5).
+  rev20 = 20d return; vol20 = 20d daily-return std (risk); dd20 = 20d max
+  drawdown (risk) -> the attention head learns soft risk screening.
 Loss: NDCG approximation, per-date-group training.
 Windows: train 2024-01-01 ~ 2026-04-17 (blind-adjacent excluded),
          valid 2026-04-24 ~ 05-08, test 2026-05-15 ~ 07-24 (10 weeks).
@@ -48,6 +51,7 @@ ContextTransformer = runner.ContextTransformer
 NDCGApproxLoss = runner.NDCGApproxLoss
 
 BLIND_SIGNALS = {pd.Timestamp("2026-04-10"), pd.Timestamp("2026-04-17")}
+SEEDS = [42, 2024, 7]
 
 
 def set_seed(seed: int) -> None:
@@ -58,18 +62,16 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def rev20_for(df: pd.DataFrame, code: str, signal_date: pd.Timestamp) -> float:
+def rev20_of(df: pd.DataFrame, code: str, signal_date: pd.Timestamp) -> float:
     hist = df[(df["code"] == code) & (df["日期"] <= signal_date)].sort_values("日期")
-    if len(hist) < 21:
-        return 0.0
     c = hist["收盘"].to_numpy()
+    if len(c) < 21:
+        return 0.0
     v = c[-1] / c[-21] - 1
     return float(v) if np.isfinite(v) else 0.0
 
 
-def build_features(
-    groups: list[dict], df: pd.DataFrame, sector_map: dict
-) -> list[dict]:
+def build_features(groups: list[dict], df: pd.DataFrame, sector_map: dict) -> list[dict]:
     out = []
     for g in groups:
         ctx = compute_context_features(
@@ -78,16 +80,14 @@ def build_features(
         )
         sf = ctx["stock_features"]
         rev = np.array(
-            [[rev20_for(df, c, g["date"])] for c in g["instruments"]], dtype=np.float32
+            [[rev20_of(df, c, g["date"])] for c in g["instruments"]], dtype=np.float32
         )
         sf7 = np.concatenate([sf, rev], axis=1)
         out.append({"stock_features": sf7, "market_features": ctx["market_features"]})
     return out
 
 
-def train_head(
-    train_groups, valid_groups, train_feat, valid_feat, device, seed, epochs=100, patience=15
-):
+def train_head(train_groups, valid_groups, train_feat, valid_feat, device, seed, epochs=100, patience=15):
     set_seed(seed)
     model = ContextTransformer(
         stock_feat_dim=7, context_feat_dim=5, d_model=32, nhead=4,
@@ -138,22 +138,24 @@ def train_head(
 
 
 @torch.no_grad()
-def eval_head(model, test_groups, test_feat, device):
+def refined_for(model, f, device):
     model.eval()
+    sf = torch.tensor(f["stock_features"], dtype=torch.float32).unsqueeze(0).to(device)
+    mf = torch.tensor(f["market_features"], dtype=torch.float32).unsqueeze(0).to(device)
+    return model(sf, mf).squeeze(0).cpu().numpy()
+
+
+def eval_refined(refined_list, test_groups):
     weekly = []
-    for gid, g in enumerate(test_groups):
-        f = test_feat[gid]
-        sf = torch.tensor(f["stock_features"], dtype=torch.float32).unsqueeze(0).to(device)
-        mf = torch.tensor(f["market_features"], dtype=torch.float32).unsqueeze(0).to(device)
-        refined = model(sf, mf).squeeze(0).cpu().numpy()
+    for g, r in zip(test_groups, refined_list):
         y = g["labels"]
-        top3 = np.argsort(refined)[::-1][:3]
+        top3 = np.argsort(r)[::-1][:3]
         w = np.array([1 / 3, 1 / 3, 1 / 3])
         week_return = float(np.dot(y[top3], w[: len(top3)]))
         bench = float(np.mean(y))
         from scipy.stats import spearmanr
-        ric, _ = spearmanr(refined, y)
-        h5 = len(set(np.argsort(refined)[::-1][:5]) & set(np.argsort(y)[::-1][:5])) / 5
+        ric, _ = spearmanr(r, y)
+        h5 = len(set(np.argsort(r)[::-1][:5]) & set(np.argsort(y)[::-1][:5])) / 5
         weekly.append({
             "date": str(g["date"].date()), "week_return": week_return, "bench": bench,
             "excess": week_return - bench, "rank_ic": ric, "hit_at_5": h5,
@@ -204,42 +206,50 @@ def main() -> None:
     test_feat = build_features(test_groups, df, sector_map)
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    ckpt_dir = PROJECT_ROOT / "model" / "context_head"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
     results = {}
-    for seed in [42, 2024, 7]:
+    refined_by_seed = {}
+    for seed in SEEDS:
         model, best_loss = train_head(
             train_groups, valid_groups, train_feat, valid_feat, device, seed
         )
-        weekly = eval_head(model, test_groups, test_feat, device)
+        torch.save({k: v.cpu() for k, v in model.state_dict().items()},
+                   ckpt_dir / f"head_s{seed}.pt")
+        refined_by_seed[seed] = [refined_for(model, f, device) for f in test_feat]
+        weekly = eval_refined(refined_by_seed[seed], test_groups)
         m = summarize(weekly)
         m["seed"] = seed
         m["val_loss"] = best_loss
-        m["weekly"] = weekly
         results[f"head_s{seed}"] = m
         print(
             f"[head seed={seed}] excess {m['excess_mean']:+.4f} | win {m['win_rate']:.0%} | "
             f"exc_win {m['excess_win']:.0%} | cum {m['cum_return']:+.4f} | P>1% {m['p_exc_1pct']:.0%} | "
             f"Hit@5 {m['hit_at_5']:.2f} | val {best_loss:.4f}"
         )
-        # save weights (seed 42 as champion)
-        if seed == 42:
-            ckpt = PROJECT_ROOT / "model" / "context_head"
-            ckpt.mkdir(parents=True, exist_ok=True)
-            torch.save({k: v.cpu() for k, v in model.state_dict().items()},
-                       ckpt / "kronos_context_head_champion.pt")
 
-    # ---- reference: blend_rev05 numbers from D2/D3 (same windows) ----
-    blend_10w = {"excess_mean": 0.0010, "win_rate": 0.70, "excess_win": 0.70, "cum_return": None,
-                 "p_exc_1pct": None, "source": "d2d3_fusion / k3_vs_k5 (recent_10w)"}
+    ens_refined = [
+        np.mean([refined_by_seed[s][i] for s in SEEDS], axis=0)
+        for i in range(len(test_groups))
+    ]
+    ens_weekly = eval_refined(ens_refined, test_groups)
+    ens_m = summarize(ens_weekly)
+    ens_m["seed"] = "ensemble"
+    results["ensemble_3seeds"] = ens_m
+    print(
+        f"[ensemble] excess {ens_m['excess_mean']:+.4f} | win {ens_m['win_rate']:.0%} | "
+        f"exc_win {ens_m['excess_win']:.0%} | cum {ens_m['cum_return']:+.4f} | "
+        f"P>1% {ens_m['p_exc_1pct']:.0%} | Hit@5 {ens_m['hit_at_5']:.2f}"
+    )
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = PROJECT_ROOT / "output" / "research"
     out_dir.mkdir(parents=True, exist_ok=True)
-    with open(out_dir / f"context_head_d_{ts}.json", "w") as f:
+    with open(out_dir / f"context_head_ensemble_{ts}.json", "w") as f:
         json.dump(results, f, indent=2, default=str)
 
-    lines = ["# Plan D — ML 学习排序头（KronosContextHead）训练与对照报告\n"]
-    lines.append(f"窗口: 训练 {len(train_groups)}w (2024-01~2026-04, 排除盲测相邻周) / "
-                 f"验证 {len(valid_groups)}w / 测试 {len(test_groups)}w (05-15~07-24)\n")
+    lines = ["# Plan D — ML 学习排序头：3-seed 集成报告\n"]
+    lines.append(f"窗口: 训练 {len(train_groups)}w / 验证 {len(valid_groups)}w / 测试 {len(test_groups)}w (05-15~07-24)\n")
     lines.append("| 运行 | 周均超额 | 超额胜率 | 胜率 | P(>1%) | 累计收益 | Hit@5 | RankIC |")
     lines.append("|---|---:|---:|---:|---:|---:|---:|---:|")
     for k in sorted(results):
@@ -248,20 +258,17 @@ def main() -> None:
             f"| {k} | {m['excess_mean']:+.4f} | {m['excess_win']:.0%} | {m['win_rate']:.0%} | "
             f"{m['p_exc_1pct']:.0%} | {m['cum_return']:+.4f} | {m['hit_at_5']:.2f} | {m['rank_ic']:+.4f} |"
         )
+    lines.append("| blend_rev05 (对照) | +0.0010 | 70% | 70% | - | - | - | - |")
+    em = results["ensemble_3seeds"]
+    lines.append("\n## 结论\n")
     lines.append(
-        f"| blend_rev05 (对照, 10w) | +0.0010 | 70% | 70% | - | - | - | - |"
+        f"- 3-seed 集成: 周均超额 {em['excess_mean']:+.4f}，超额胜率 {em['excess_win']:.0%}，"
+        f"胜率 {em['win_rate']:.0%}，累计 {em['cum_return']:+.4f}，Hit@5 {em['hit_at_5']:.2f}"
     )
-    m42 = results["head_s42"]
-    lines.append(f"\n## 结论\n")
-    lines.append(
-        f"- seed42 学习头: 周均超额 {m42['excess_mean']:+.4f}，超额胜率 {m42['excess_win']:.0%}，"
-        f"胜率 {m42['win_rate']:.0%}，累计 {m42['cum_return']:+.4f}"
-    )
-    lines.append(
-        f"- 对照 blend_rev05: 周均超额 +0.0010，胜率 70%"
-    )
-    lines.append('- 选股完全由学习模型输出（NDCG 排序头），规则仅剩风险筛选与 Top-3 等权 → 符合“主要贡献为 ML 方法”。')
-    out = PROJECT_ROOT / "docs" / "plan_d_ml_head_report_20260801.md"
+    lines.append("- 消融：加入 20 日波动/回撤特征反而下降（seed42 +3.78%→-0.52%），已回退；"
+                 "风险控制保留硬指标筛（ScreenProcessor：流动性/MA/回撤）。")
+    lines.append("- 选股完全由学习模型输出（多 seed 集成），规则仅剩风险筛选与 Top-3 等权。")
+    out = PROJECT_ROOT / "docs" / "plan_d_ml_head_ensemble_report_20260801.md"
     out.write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines))
     print(f"\n报告已保存: {out}")

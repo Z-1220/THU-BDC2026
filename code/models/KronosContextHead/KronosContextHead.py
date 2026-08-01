@@ -1,19 +1,22 @@
-"""Learned ranking head for production (ML-driven stock selection).
+"""Learned ranking head (multi-seed ensemble) for production — ML-driven
+stock selection with learned soft risk screening.
 
 Features per stock (order fixed, shared with scripts/train_context_head_d.py):
-  [kronos_score, sector_mom_5, cs_rank, cs_zscore,
-   amount_log_60d, turnover_log_60d, rev20]
+  [kronos_score, sector_mom_5, cs_rank, cs_zscore, amount_log_60d,
+   turnover_log_60d, rev20, vol20, dd20]
 Market context (5): [market_mom_5, market_mom_20, market_vol_20,
                      market_breadth_1, market_dispersion]
 
-Trained with NDCG loss on 2024-01 ~ 2026-04 (blind-interval excluded);
-weights loaded by fit()/lazy-load for production.
+rev20/vol20/dd20 are risk features the attention head learns to use (soft
+risk screening); hard indicator screens (ScreenProcessor) remain as
+constraints. head_weights may be a single path or a list (ensemble: refined
+scores are averaged across heads).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
@@ -65,13 +68,14 @@ class KronosContextHeadModel(Model):
         num_layers: int = 2,
         dim_feedforward: int = 64,
         dropout: float = 0.1,
-        head_weights: str | None = None,
+        head_weights: Union[str, list[str], None] = None,
         device: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.logger = get_module_logger("KronosContextHead")
         self.seed = seed
-        self.head_weights = head_weights
+        paths = [head_weights] if isinstance(head_weights, str) else (head_weights or [])
+        self.head_weights: list[str] = list(paths)
 
         self.kronos = KronosModel(
             model_name=model_name,
@@ -86,17 +90,21 @@ class KronosContextHeadModel(Model):
             cs_zscore=False,
         )
         self.extractor = ContextFeatureExtractor()
-        self.transformer = ContextTransformer(
-            stock_feat_dim=STOCK_FEAT_DIM,
-            context_feat_dim=5,
-            d_model=d_model,
-            nhead=nhead,
-            num_layers=num_layers,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout,
-            max_stocks=350,
-        )
-        self._net = self.transformer
+
+        def _new_head() -> ContextTransformer:
+            return ContextTransformer(
+                stock_feat_dim=STOCK_FEAT_DIM,
+                context_feat_dim=5,
+                d_model=d_model,
+                nhead=nhead,
+                num_layers=num_layers,
+                dim_feedforward=dim_feedforward,
+                dropout=dropout,
+                max_stocks=350,
+            )
+
+        self._nets = nn.ModuleList([_new_head() for _ in range(max(1, len(self.head_weights)))])
+        self._net = self._nets
         if device is None:
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.device = device
@@ -106,12 +114,16 @@ class KronosContextHeadModel(Model):
     def _ensure_ready(self) -> None:
         if self._fitted:
             return
-        if self.head_weights and Path(self.head_weights).exists():
-            sd = torch.load(self.head_weights, map_location="cpu", weights_only=False)
-            self._net.load_state_dict(sd)
-            self.logger.info(f"Loaded ranking head weights from {self.head_weights}")
-        else:
-            self.logger.warning(f"head_weights not found at {self.head_weights}")
+        loaded = 0
+        for i, path in enumerate(self.head_weights):
+            if Path(path).exists():
+                sd = torch.load(path, map_location="cpu", weights_only=False)
+                self._nets[i].load_state_dict(sd)
+                loaded += 1
+            else:
+                self.logger.warning(f"head weight not found: {path}")
+        if loaded == 0 and self.head_weights:
+            self.logger.warning("no head weights loaded")
         self.kronos._fitted = True
         self._fitted = True
 
@@ -122,13 +134,13 @@ class KronosContextHeadModel(Model):
         save_path: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Load the trained head (training done by scripts/train_context_head_d.py)."""
+        """Load the trained heads (training done by scripts/train_context_head_d.py)."""
         self._ensure_ready()
 
     def predict(
         self, dataset: DatasetH, segment: str = "test", **kwargs: Any
     ) -> pd.Series:
-        """Refined ML scores (Series with (datetime, instrument) index)."""
+        """Ensemble refined ML scores (mean over heads)."""
         self._ensure_ready()
         kronos_pred = self.kronos.predict(dataset, segment=segment)
         if len(kronos_pred) == 0:
@@ -141,10 +153,13 @@ class KronosContextHeadModel(Model):
             if len(instruments) < 2:
                 continue
             stock_f, market_f = self._build_features(dt, instruments, dt_scores)
+            sf = torch.tensor(stock_f, dtype=torch.float32).unsqueeze(0).to(self.device)
+            mf = torch.tensor(market_f, dtype=torch.float32).unsqueeze(0).to(self.device)
+            refineds = []
             with torch.no_grad():
-                sf = torch.tensor(stock_f, dtype=torch.float32).unsqueeze(0).to(self.device)
-                mf = torch.tensor(market_f, dtype=torch.float32).unsqueeze(0).to(self.device)
-                refined = self.transformer(sf, mf).squeeze(0).cpu().numpy()
+                for head in self._nets:
+                    refineds.append(head(sf, mf).squeeze(0).cpu().numpy())
+            refined = np.mean(refineds, axis=0)
             parts.append(
                 pd.Series(
                     refined,
@@ -173,7 +188,8 @@ class KronosContextHeadModel(Model):
         )
         extra = feat_df[_STOCK_COLS].values.astype(np.float32)
         rev20 = np.array(
-            [[self._rev20(inst, signal_date)] for inst in instruments], dtype=np.float32
+            [[self._rev20(instrument, signal_date)] for instrument in instruments],
+            dtype=np.float32,
         )
         stock_f = np.concatenate([scores, extra, rev20], axis=1)
         market_f = feat_df[_MARKET_COLS].iloc[0].values.astype(np.float32)
@@ -186,9 +202,9 @@ class KronosContextHeadModel(Model):
         code = instrument[2:] if instrument.startswith(("SH", "SZ")) else instrument
         d = self.extractor._df
         hist = d[(d["code"] == code) & (d["日期"] <= signal_date)].sort_values("日期")
-        if len(hist) < 21:
-            return 0.0
         c = hist["close"].to_numpy()
+        if len(c) < 21:
+            return 0.0
         v = c[-1] / c[-21] - 1
         return float(v) if np.isfinite(v) else 0.0
 

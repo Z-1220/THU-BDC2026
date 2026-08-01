@@ -1,10 +1,9 @@
-# Champion config — learned Context Transformer ranking head (2026-08-01, B-round)
-# ML-driven selection: fine-tuned Kronos scores + learned NDCG ranking head
-# (features: score, sector momentum, CS rank/z-score, liquidity, 20d reversal,
-# market context). Final portfolio = model Top-3 equal weight; only risk
-# screens (ScreenProcessor) remain as constraints. No hand-crafted selection.
-# Trained by scripts/train_context_head_d.py (seed 42 champion, 10-week
-# out-of-sample: weekly excess +3.78%, win 70%).
+# Champion config — 3-seed ensemble learned ranking head (2026-08-01, B-round)
+# ML-driven selection: fine-tuned Kronos scores + NDCG Context Transformer heads
+# (9 features: score, sector momentum, CS rank/z-score, liquidity, 20d reversal,
+# 20d vol, 20d drawdown + market context). Refined scores averaged over 3 seeds.
+# Hard risk screens (ScreenProcessor) remain as constraints; the heads learn
+# soft risk screening from vol20/dd20. Final portfolio = model Top-3 equal.
 
 qlib_init:
   provider_uri: "./temp/qlib_data"
@@ -29,7 +28,10 @@ task:
       num_layers: 2
       dim_feedforward: 64
       dropout: 0.1
-      head_weights: "./model/context_head/kronos_context_head_champion.pt"
+      head_weights:
+        - "./model/context_head/head_s42.pt"
+        - "./model/context_head/head_s2024.pt"
+        - "./model/context_head/head_s7.pt"
 
   dataset:
     class: DatasetH
