@@ -149,12 +149,24 @@ class KronosCardNNModel(Model):
             )
         self._fitted = True
 
+    def _ensure_ready(self) -> None:
+        """Load head weights on demand (supports the commit.py _net path)."""
+        if self._fitted:
+            return
+        if self.cardnn_weights and Path(self.cardnn_weights).exists():
+            sd = torch.load(
+                self.cardnn_weights, map_location="cpu", weights_only=False
+            )
+            self._net.load_state_dict(sd)
+            self.logger.info(f"Lazy-loaded CardNN head weights from {self.cardnn_weights}")
+        self.kronos._fitted = True
+        self._fitted = True
+
     def predict(
         self, dataset: DatasetH, segment: str = "test", **kwargs: Any
     ) -> pd.Series:
         """Refined scores via Context Transformer (raw Kronos scores stashed)."""
-        if not self._fitted:
-            raise RuntimeError("Model not fitted.")
+        self._ensure_ready()
 
         kronos_pred = self.kronos.predict(dataset, segment=segment)
         if len(kronos_pred) == 0:
@@ -208,6 +220,7 @@ class KronosCardNNModel(Model):
         Returns:
             (weights {instrument: weight}, diagnostics).
         """
+        self._ensure_ready()
         dt = pd.Timestamp(signal_date)
         instruments = list(scores.index)
         raw = self._last_raw.get(dt)

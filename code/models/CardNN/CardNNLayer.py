@@ -122,7 +122,7 @@ class GumbelSinkhornTopK(nn.Module):
         top = torch.topk(logits, min(K, N + 1)).indices
         n_cash = int((top == N).sum())
         sel = top[top < N]
-        invest = (1.0 - n_cash / K).clamp(min=0.0, max=1.0)
+        invest = min(max(1.0 - n_cash / K, 0.0), 1.0)
 
         tau_w = F.softplus(self.reweight_tau) + 0.05
         w = torch.zeros(N, device=z.device)

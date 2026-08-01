@@ -1,0 +1,1031 @@
+{
+  "e2e_k3_ft_s42": {
+    "weeks": 21,
+    "mean_return": 0.009518573370546247,
+    "std_return": 0.05290981061390716,
+    "sharpe": 1.2972907654955683,
+    "win_rate": 0.5238095238095238,
+    "cum_return": 0.18763141083673185,
+    "max_dd": 0.09581944521076152,
+    "rank_ic": 0.03069537298934252,
+    "hit_at_5": 0.047619047619047616,
+    "n_positions": 3.0,
+    "invested_frac": 1.0,
+    "cash_positions": 0.0,
+    "max_weight": 0.334573894739151,
+    "mean_hhi": 0.33333402020590647,
+    "weight_sum_ok": true,
+    "experiment": "e2e_k3_ft",
+    "K": 3,
+    "seed": 42,
+    "warm_start": true,
+    "aux_ndcg_weight": 0.0,
+    "freeze_head": true,
+    "best_val_return": 0.030064616352319717,
+    "weekly_details": [
+      {
+        "date": "2026-02-06",
+        "n_stocks": 110,
+        "week_return": 0.015063943990621215,
+        "rank_ic": -0.1083109798706129,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-02-13",
+        "n_stocks": 108,
+        "week_return": 0.023089547610931665,
+        "rank_ic": 0.06121924033267598,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-02-27",
+        "n_stocks": 109,
+        "week_return": 0.04678423278264008,
+        "rank_ic": 0.1445093133166528,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-06",
+        "n_stocks": 98,
+        "week_return": 0.025376799640250126,
+        "rank_ic": 0.17437790486391366,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-13",
+        "n_stocks": 93,
+        "week_return": -0.01881145932890408,
+        "rank_ic": 0.06560532362507832,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-20",
+        "n_stocks": 59,
+        "week_return": -0.03644907263307666,
+        "rank_ic": -0.11221671854965488,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-27",
+        "n_stocks": 54,
+        "week_return": 0.006050906855719538,
+        "rank_ic": -0.0684962835906232,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-04-03",
+        "n_stocks": 52,
+        "week_return": 0.04548377075919326,
+        "rank_ic": 0.19141533802998462,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-04-10",
+        "n_stocks": 76,
+        "week_return": -0.008492795676812302,
+        "rank_ic": 0.205933014354067,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-04-24",
+        "n_stocks": 76,
+        "week_return": 0.029106769746160666,
+        "rank_ic": 0.008010936431989064,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-08",
+        "n_stocks": 99,
+        "week_return": -0.028124638250264386,
+        "rank_ic": 0.08065553494124922,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-15",
+        "n_stocks": 88,
+        "week_return": -0.0007076808796314836,
+        "rank_ic": -0.04305942023880808,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-22",
+        "n_stocks": 79,
+        "week_return": -0.048065196712518625,
+        "rank_ic": -0.07168938656280428,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-29",
+        "n_stocks": 70,
+        "week_return": -0.021986530459765112,
+        "rank_ic": 0.16749190796955649,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-06-05",
+        "n_stocks": 67,
+        "week_return": 0.10355421168461704,
+        "rank_ic": 0.02031287413201373,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-06-12",
+        "n_stocks": 63,
+        "week_return": 0.12930805946525178,
+        "rank_ic": -0.03989055299539171,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-06-26",
+        "n_stocks": 45,
+        "week_return": -0.07218354309606484,
+        "rank_ic": -0.18919631093544137,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-07-03",
+        "n_stocks": 64,
+        "week_return": 0.09067519935291042,
+        "rank_ic": 0.054945054945054944,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-07-10",
+        "n_stocks": 56,
+        "week_return": -0.06337712723771204,
+        "rank_ic": 0.08291182501708819,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-07-17",
+        "n_stocks": 34,
+        "week_return": 0.013919812971008408,
+        "rank_ic": -0.08815889992360579,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-07-24",
+        "n_stocks": 46,
+        "week_return": -0.03032516980308344,
+        "rank_ic": 0.10823311748381129,
+        "hit_at_5": 0.2
+      }
+    ],
+    "allocation_diag": [
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336714208126068,
+        "weight_sum": 0.9999998807907104,
+        "hhi": 0.33333349227905273
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336017429828644,
+        "weight_sum": 1.0,
+        "hhi": 0.33333349227905273
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33337870240211487,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.3333333134651184
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33422985672950745,
+        "weight_sum": 1.0,
+        "hhi": 0.3333354592323303
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33365631103515625,
+        "weight_sum": 1.0,
+        "hhi": 0.3333336412906647
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3339574635028839,
+        "weight_sum": 1.0,
+        "hhi": 0.33333393931388855
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3340253531932831,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.3333340287208557
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.333535760641098,
+        "weight_sum": 1.0,
+        "hhi": 0.33333343267440796
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.334573894739151,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.33333563804626465
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336198925971985,
+        "weight_sum": 1.0,
+        "hhi": 0.33333346247673035
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3341171443462372,
+        "weight_sum": 1.0,
+        "hhi": 0.3333342671394348
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33375465869903564,
+        "weight_sum": 1.0,
+        "hhi": 0.3333336114883423
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336581289768219,
+        "weight_sum": 1.0,
+        "hhi": 0.33333349227905273
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336164951324463,
+        "weight_sum": 1.0,
+        "hhi": 0.33333346247673035
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336607813835144,
+        "weight_sum": 1.0,
+        "hhi": 0.3333336412906647
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3333842158317566,
+        "weight_sum": 1.0,
+        "hhi": 0.3333333432674408
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3342987596988678,
+        "weight_sum": 1.0000001192092896,
+        "hhi": 0.3333348035812378
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.334242045879364,
+        "weight_sum": 1.0,
+        "hhi": 0.33333560824394226
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33388596773147583,
+        "weight_sum": 1.0,
+        "hhi": 0.333333820104599
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33414217829704285,
+        "weight_sum": 1.0,
+        "hhi": 0.33333444595336914
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336758017539978,
+        "weight_sum": 1.0,
+        "hhi": 0.3333340287208557
+      }
+    ]
+  },
+  "e2e_k3_ft_s2024": {
+    "weeks": 21,
+    "mean_return": 0.013528340553917101,
+    "std_return": 0.05288108924178992,
+    "sharpe": 1.844785205390221,
+    "win_rate": 0.5238095238095238,
+    "cum_return": 0.2910734003296547,
+    "max_dd": 0.10814667515273647,
+    "rank_ic": 0.02090415214783307,
+    "hit_at_5": 0.10476190476190476,
+    "n_positions": 2.857142857142857,
+    "invested_frac": 0.9523809523809526,
+    "cash_positions": 0.14285714285714285,
+    "max_weight": 0.3348723351955414,
+    "mean_hhi": 0.31746098753951846,
+    "weight_sum_ok": true,
+    "experiment": "e2e_k3_ft",
+    "K": 3,
+    "seed": 2024,
+    "warm_start": true,
+    "aux_ndcg_weight": 0.0,
+    "freeze_head": true,
+    "best_val_return": -0.014499356038868427,
+    "weekly_details": [
+      {
+        "date": "2026-02-06",
+        "n_stocks": 110,
+        "week_return": 0.06151830586500848,
+        "rank_ic": -0.08946644726461239,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-02-13",
+        "n_stocks": 108,
+        "week_return": 0.11212853582074198,
+        "rank_ic": 0.113683348099879,
+        "hit_at_5": 0.4
+      },
+      {
+        "date": "2026-02-27",
+        "n_stocks": 109,
+        "week_return": -0.03929754855742769,
+        "rank_ic": -0.027485867852840334,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-06",
+        "n_stocks": 98,
+        "week_return": 0.019767410057033787,
+        "rank_ic": -0.04320716102748502,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-13",
+        "n_stocks": 93,
+        "week_return": -0.0262924052036002,
+        "rank_ic": 0.11278386201545758,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-20",
+        "n_stocks": 59,
+        "week_return": -0.043677002719753284,
+        "rank_ic": 0.04807200573285997,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-27",
+        "n_stocks": 54,
+        "week_return": 0.05025449832808655,
+        "rank_ic": 0.12894987611968742,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-04-03",
+        "n_stocks": 52,
+        "week_return": 0.10613545825476302,
+        "rank_ic": 0.038633113496239095,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-04-10",
+        "n_stocks": 76,
+        "week_return": -0.03487167405397704,
+        "rank_ic": -0.07934381408065617,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-04-24",
+        "n_stocks": 76,
+        "week_return": 0.023166880262885964,
+        "rank_ic": -0.05293233082706768,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-08",
+        "n_stocks": 99,
+        "week_return": 0.004857689153187053,
+        "rank_ic": 0.010142238713667286,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-05-15",
+        "n_stocks": 88,
+        "week_return": 0.0810157256467053,
+        "rank_ic": 0.06241414532774472,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-05-22",
+        "n_stocks": 79,
+        "week_return": -0.01396416296066634,
+        "rank_ic": 0.1316942551119766,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-05-29",
+        "n_stocks": 70,
+        "week_return": -0.06437417657542886,
+        "rank_ic": -0.07210217828711399,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-06-05",
+        "n_stocks": 67,
+        "week_return": -0.01851259485233684,
+        "rank_ic": 0.04645223082448719,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-06-12",
+        "n_stocks": 63,
+        "week_return": 0.003274168281836477,
+        "rank_ic": -0.024961597542242708,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-06-26",
+        "n_stocks": 45,
+        "week_return": -0.007098394537213655,
+        "rank_ic": 0.15731225296442686,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-07-03",
+        "n_stocks": 64,
+        "week_return": 0.012079901903031013,
+        "rank_ic": -0.10347985347985347,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-07-10",
+        "n_stocks": 56,
+        "week_return": -0.023048145948695434,
+        "rank_ic": 0.1255639097744361,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-07-17",
+        "n_stocks": 34,
+        "week_return": 0.1039470932741422,
+        "rank_ic": 0.0722689075630252,
+        "hit_at_5": 0.4
+      },
+      {
+        "date": "2026-07-24",
+        "n_stocks": 46,
+        "week_return": -0.022914409806063366,
+        "rank_ic": -0.11600370027752083,
+        "hit_at_5": 0.2
+      }
+    ],
+    "allocation_diag": [
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3337704539299011,
+        "weight_sum": 1.0,
+        "hhi": 0.3333336114883423
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33393430709838867,
+        "weight_sum": 1.0,
+        "hhi": 0.33333390951156616
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33377882838249207,
+        "weight_sum": 1.0,
+        "hhi": 0.33333367109298706
+      },
+      {
+        "n_positions": 2.0,
+        "invested_frac": 0.6666666666666667,
+        "cash_positions": 1.0,
+        "max_weight": 0.33372586965560913,
+        "weight_sum": 0.6666666865348816,
+        "hhi": 0.22222253680229187
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3339707553386688,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.3333339989185333
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3337295353412628,
+        "weight_sum": 1.0,
+        "hhi": 0.33333373069763184
+      },
+      {
+        "n_positions": 2.0,
+        "invested_frac": 0.6666666666666667,
+        "cash_positions": 1.0,
+        "max_weight": 0.33345434069633484,
+        "weight_sum": 0.6666667461395264,
+        "hhi": 0.22222228348255157
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3340522050857544,
+        "weight_sum": 1.0,
+        "hhi": 0.33333414793014526
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33357691764831543,
+        "weight_sum": 1.0,
+        "hhi": 0.3333335816860199
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33390554785728455,
+        "weight_sum": 1.0,
+        "hhi": 0.33333396911621094
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33364197611808777,
+        "weight_sum": 1.0000001192092896,
+        "hhi": 0.3333337903022766
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33381012082099915,
+        "weight_sum": 1.0,
+        "hhi": 0.33333373069763184
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3341394364833832,
+        "weight_sum": 1.0,
+        "hhi": 0.333334356546402
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3348723351955414,
+        "weight_sum": 1.0,
+        "hhi": 0.33333688974380493
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33380380272865295,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.3333336412906647
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3337927758693695,
+        "weight_sum": 1.0,
+        "hhi": 0.3333336412906647
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33417776226997375,
+        "weight_sum": 1.0,
+        "hhi": 0.33333468437194824
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336876928806305,
+        "weight_sum": 1.0,
+        "hhi": 0.3333335518836975
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3340145945549011,
+        "weight_sum": 1.0,
+        "hhi": 0.3333340883255005
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3342636227607727,
+        "weight_sum": 1.0,
+        "hhi": 0.33333462476730347
+      },
+      {
+        "n_positions": 2.0,
+        "invested_frac": 0.6666666666666667,
+        "cash_positions": 1.0,
+        "max_weight": 0.3335427939891815,
+        "weight_sum": 0.6666666269302368,
+        "hhi": 0.22222229838371277
+      }
+    ]
+  },
+  "e2e_k3_ft_s7": {
+    "weeks": 21,
+    "mean_return": 0.008198385170331259,
+    "std_return": 0.050887266458401956,
+    "sharpe": 1.1617718995299793,
+    "win_rate": 0.6190476190476191,
+    "cum_return": 0.15720948916150146,
+    "max_dd": 0.23248693495514583,
+    "rank_ic": 0.01905149761116066,
+    "hit_at_5": 0.07619047619047618,
+    "n_positions": 3.0,
+    "invested_frac": 1.0,
+    "cash_positions": 0.0,
+    "max_weight": 0.33483633399009705,
+    "mean_hhi": 0.3333337448892139,
+    "weight_sum_ok": true,
+    "experiment": "e2e_k3_ft",
+    "K": 3,
+    "seed": 7,
+    "warm_start": true,
+    "aux_ndcg_weight": 0.0,
+    "freeze_head": true,
+    "best_val_return": 0.012709799688309431,
+    "weekly_details": [
+      {
+        "date": "2026-02-06",
+        "n_stocks": 110,
+        "week_return": 0.007563912935489511,
+        "rank_ic": -0.08723936613844871,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-02-13",
+        "n_stocks": 108,
+        "week_return": -0.011883731182795338,
+        "rank_ic": 0.16541389198510006,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-02-27",
+        "n_stocks": 109,
+        "week_return": 0.014298677268698157,
+        "rank_ic": 0.14406449819293857,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-06",
+        "n_stocks": 98,
+        "week_return": 0.07869561801443195,
+        "rank_ic": 0.13769294034389762,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-13",
+        "n_stocks": 93,
+        "week_return": 0.04219090395360482,
+        "rank_ic": 0.06800751991883261,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-03-20",
+        "n_stocks": 59,
+        "week_return": -0.04422075992976034,
+        "rank_ic": -0.14664153481306463,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-03-27",
+        "n_stocks": 54,
+        "week_return": 0.04425036454632169,
+        "rank_ic": -0.039069944730322076,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-04-03",
+        "n_stocks": 52,
+        "week_return": 0.02864583157415644,
+        "rank_ic": 0.2826834006321495,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-04-10",
+        "n_stocks": 76,
+        "week_return": 0.07161789414698236,
+        "rank_ic": 0.21834586466165412,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-04-24",
+        "n_stocks": 76,
+        "week_return": 0.03530380361694569,
+        "rank_ic": 0.005741626794258373,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-08",
+        "n_stocks": 99,
+        "week_return": 0.07099603861209809,
+        "rank_ic": 0.06377241805813234,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-05-15",
+        "n_stocks": 88,
+        "week_return": 0.019141500624603805,
+        "rank_ic": -0.17870099679475893,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-22",
+        "n_stocks": 79,
+        "week_return": 0.0023463847724347793,
+        "rank_ic": -0.030477117818889975,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-05-29",
+        "n_stocks": 70,
+        "week_return": -0.05864226477514838,
+        "rank_ic": 0.09159303647974805,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-06-05",
+        "n_stocks": 67,
+        "week_return": 0.026704336779502253,
+        "rank_ic": 0.10595418628781228,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-06-12",
+        "n_stocks": 63,
+        "week_return": 0.1026999767663875,
+        "rank_ic": 0.012000768049155147,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-06-26",
+        "n_stocks": 45,
+        "week_return": -0.060741905173687306,
+        "rank_ic": -0.30368906455862976,
+        "hit_at_5": 0.0
+      },
+      {
+        "date": "2026-07-03",
+        "n_stocks": 64,
+        "week_return": -0.04903929212550544,
+        "rank_ic": 0.04519230769230769,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-07-10",
+        "n_stocks": 56,
+        "week_return": -0.05257235921302515,
+        "rank_ic": 0.07887901572112099,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-07-17",
+        "n_stocks": 34,
+        "week_return": -0.037207856534766784,
+        "rank_ic": -0.19144385026737967,
+        "hit_at_5": 0.2
+      },
+      {
+        "date": "2026-07-24",
+        "n_stocks": 46,
+        "week_return": -0.05798098610001184,
+        "rank_ic": -0.04199814986123959,
+        "hit_at_5": 0.0
+      }
+    ],
+    "allocation_diag": [
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336394131183624,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.33333343267440796
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33360764384269714,
+        "weight_sum": 1.0,
+        "hhi": 0.33333349227905273
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.333402544260025,
+        "weight_sum": 1.0,
+        "hhi": 0.3333333730697632
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3335776925086975,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.33333343267440796
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33343884348869324,
+        "weight_sum": 1.0,
+        "hhi": 0.3333333730697632
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33483633399009705,
+        "weight_sum": 1.0,
+        "hhi": 0.3333369493484497
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33356693387031555,
+        "weight_sum": 1.0,
+        "hhi": 0.33333343267440796
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33356964588165283,
+        "weight_sum": 1.0,
+        "hhi": 0.33333343267440796
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3334169387817383,
+        "weight_sum": 1.0,
+        "hhi": 0.3333333730697632
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3334358036518097,
+        "weight_sum": 1.0,
+        "hhi": 0.3333333730697632
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3336075246334076,
+        "weight_sum": 1.0000001192092896,
+        "hhi": 0.3333336412906647
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3335685431957245,
+        "weight_sum": 1.0,
+        "hhi": 0.33333343267440796
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33361178636550903,
+        "weight_sum": 1.0,
+        "hhi": 0.3333335220813751
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33376988768577576,
+        "weight_sum": 1.0,
+        "hhi": 0.3333337604999542
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.3335302472114563,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.3333333730697632
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33359062671661377,
+        "weight_sum": 0.9999999403953552,
+        "hhi": 0.3333335220813751
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.333597868680954,
+        "weight_sum": 1.0,
+        "hhi": 0.33333346247673035
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33360159397125244,
+        "weight_sum": 1.0,
+        "hhi": 0.3333336114883423
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33456042408943176,
+        "weight_sum": 1.0,
+        "hhi": 0.3333355784416199
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33377790451049805,
+        "weight_sum": 1.0,
+        "hhi": 0.3333336114883423
+      },
+      {
+        "n_positions": 3.0,
+        "invested_frac": 1.0,
+        "cash_positions": 0.0,
+        "max_weight": 0.33358389139175415,
+        "weight_sum": 1.0,
+        "hhi": 0.33333346247673035
+      }
+    ]
+  }
+}

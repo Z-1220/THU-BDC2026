@@ -190,8 +190,16 @@ def main() -> None:
     print(f"[test] 预测了 {len(scores)} 只股票")
 
     # 8. 组合优化（从配置读取）
-    weights = optimize_portfolio(scores, cfg)
-    print(f"[test] 优化后持有 {len(weights)} 只股票，权重: {weights}")
+    eval_cfg = cfg.get("task", {}).get("evaluation", {})
+    if eval_cfg.get("exposure_mode") == "cardnn" and hasattr(model, "allocate"):
+        weights, diag = model.allocate(scores, test_date)
+        print(
+            f"[test] CardNN 端到端配权: {len(weights)} 只股票, "
+            f"投入比例 {diag.get('invested_frac', 0.0):.3f}, 现金位 {diag.get('cash_positions', 0.0)}"
+        )
+    else:
+        weights = optimize_portfolio(scores, cfg)
+        print(f"[test] 优化后持有 {len(weights)} 只股票，权重: {weights}")
 
     # 9. 写入 output/result.csv
     output_dir = PROJECT_ROOT / "output"

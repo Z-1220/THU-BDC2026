@@ -1,7 +1,8 @@
-# Champion config — auto-updated by research pipeline (2026-06-29 01:10)
-# Best loss: mse (Plan A experiment winner)
-# Context mode: B-C5 (Full Context) (Plan B experiment winner)
-# See: output/research/champion_update.json for details
+# Champion config — CardNN end-to-end (2026-08-01, B-round)
+# End-to-end: fine-tuned Kronos scores -> Context Transformer (cross-stock
+# interactions + market env) -> CardNN Gumbel-Sinkhorn Top-K allocation
+# (<= K stocks, weight sum <= 1, cash asset). Head trained by
+# scripts/train_cardnn_e2e.py; see docs/cardnn_e2e_report_*.md.
 
 qlib_init:
   provider_uri: "./temp/qlib_data"
@@ -9,8 +10,8 @@ qlib_init:
 
 task:
   model:
-    class: KronosModel
-    module_path: "code.models.Kronos.KronosModel"
+    class: KronosCardNNModel
+    module_path: "code.models.CardNN.KronosCardNN"
     kwargs:
       model_name: "small"
       pretrained_dir: "./model/kronos_pretrained"
@@ -21,7 +22,16 @@ task:
       top_p: 0.9
       sample_count: 1
       seed: 42
-      cs_zscore: true
+      context_mode: "full"
+      d_model: 32
+      nhead: 4
+      num_layers: 2
+      dim_feedforward: 64
+      dropout: 0.1
+      K: 3
+      cardnn_tau: 1.0
+      cardnn_n_iter: 30
+      cardnn_weights: "./model/cardnn/kronos_cardnn_champion.pt"
 
   dataset:
     class: DatasetH
@@ -33,7 +43,7 @@ task:
         kwargs:
           instruments: "all"
           start_time: "2022-01-01"
-          end_time: "2026-06-26"
+          end_time: "2026-07-31"
           fit_start_time: "2022-01-01"
           fit_end_time: "2025-12-31"
           infer_processors:
@@ -53,12 +63,11 @@ task:
             - class: DropnaLabel
               module_path: "qlib.data.dataset.processor"
       segments:
-        train: ["2022-01-01", "2025-12-31"]
+        train: ["2024-01-01", "2025-12-31"]
         valid: ["2026-01-05", "2026-01-30"]
-        test:  ["2026-03-20", "2026-06-12"]
+        test:  ["2026-02-02", "2026-07-31"]
 
   evaluation:
     universe: "all"
-    data_end: "2026-06-26"
-    exposure_mode: "rank_weighted"
-    rank_weights: [0.333, 0.333, 0.334]
+    data_end: "2026-07-31"
+    exposure_mode: "cardnn"

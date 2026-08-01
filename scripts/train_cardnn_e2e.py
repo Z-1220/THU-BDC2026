@@ -178,10 +178,13 @@ def train_stage2_return(
     epochs: int,
     patience: int,
     aux_ndcg_weight: float,
+    freeze_head: bool = False,
+    lr: float = 1e-3,
 ) -> dict:
     """Joint end-to-end training with the portfolio-return loss."""
     ndcg = NDCGApproxLoss(sigma=1.0, k=5).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
+    params = list(model.cardnn.parameters()) if freeze_head else list(model.parameters())
+    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     best_val_ret = -float("inf")
     patience_cnt = 0
@@ -189,6 +192,8 @@ def train_stage2_return(
 
     for epoch in range(epochs):
         model.train()
+        if freeze_head:
+            model.transformer.eval()
         perm = torch.randperm(len(train_groups))
         for gid in perm:
             g, ctx = train_groups[gid], train_ctx[gid]
@@ -201,7 +206,7 @@ def train_stage2_return(
             if aux_ndcg_weight > 0:
                 loss = loss + aux_ndcg_weight * ndcg(refined, y)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(params, 1.0)
             optimizer.step()
         scheduler.step()
 
@@ -311,6 +316,9 @@ def run_experiment(
     aux_ndcg_weight: float,
     epochs: int = 100,
     patience: int = 15,
+    freeze_head: bool = False,
+    stage2_lr: float = 1e-3,
+    stage2_epochs: int | None = None,
 ) -> dict:
     set_seed(seed)
     model = EndToEndModel(K=K).to(device)
@@ -321,7 +329,8 @@ def run_experiment(
         )
     stage2 = train_stage2_return(
         model, train_groups, valid_groups, train_ctx, valid_ctx,
-        device, epochs, patience, aux_ndcg_weight,
+        device, stage2_epochs or epochs, patience, aux_ndcg_weight,
+        freeze_head=freeze_head, lr=stage2_lr,
     )
     metrics, weekly, diags = evaluate_test(model, test_groups, test_ctx, device)
     ckpt_dir = PROJECT_ROOT / "model" / "cardnn"
@@ -335,6 +344,7 @@ def run_experiment(
     metrics["seed"] = seed
     metrics["warm_start"] = warm_start
     metrics["aux_ndcg_weight"] = aux_ndcg_weight
+    metrics["freeze_head"] = freeze_head
     metrics.update(stage2)
     metrics["weekly_details"] = weekly
     metrics["allocation_diag"] = diags
@@ -446,6 +456,8 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--device", default=None)
+    parser.add_argument("--only-configs", nargs="*", default=None,
+                        help="Run only these configs (e.g. --only-configs e2e_k3_ft)")
     args = parser.parse_args()
 
     device = args.device or ("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -474,9 +486,13 @@ def main() -> None:
         "e2e_k3_ret": {"K": 3, "warm_start": False, "aux": 0.0, "seeds": args.seeds},
         "e2e_k3_ndcg": {"K": 3, "warm_start": True, "aux": 0.1, "seeds": args.seeds},
         "e2e_k5_ndcg": {"K": 5, "warm_start": True, "aux": 0.1, "seeds": args.seeds},
+        "e2e_k3_ft": {"K": 3, "warm_start": True, "aux": 0.0, "seeds": args.seeds,
+                      "freeze_head": True, "stage2_lr": 1e-4, "stage2_epochs": 30, "patience2": 8},
         "e2e_k3_shuf": {"K": 3, "warm_start": True, "aux": 0.1, "seeds": [42]},
         "e2e_k3_zero": {"K": 3, "warm_start": True, "aux": 0.1, "seeds": [42]},
     }
+    if args.only_configs:
+        configs = {k: v for k, v in configs.items() if k in args.only_configs}
 
     # Shuffle / zero negative-control contexts
     shuf_ctx = []
@@ -514,7 +530,11 @@ def main() -> None:
                 name, cfg["K"], seed,
                 train_groups, valid_groups, test_groups,
                 t_ctx, v_ctx, e_ctx, device,
-                cfg["warm_start"], cfg["aux"], args.epochs, args.patience,
+                cfg["warm_start"], cfg["aux"], args.epochs,
+                cfg.get("patience2", args.patience),
+                cfg.get("freeze_head", False),
+                cfg.get("stage2_lr", 1e-3),
+                cfg.get("stage2_epochs"),
             )
 
     # ---- Save results + champion weights ----
@@ -544,7 +564,7 @@ def main() -> None:
                      "win_rate": 0.0, "rank_ic": 0.0, "hit_at_5": 0.0}}
 
     # champion: best mean validation return among main configs
-    main_keys = [k for k in results if any(k.startswith(c) for c in ("e2e_k3_ret", "e2e_k3_ndcg", "e2e_k5_ndcg"))]
+    main_keys = [k for k in results if any(k.startswith(c) for c in ("e2e_k3_ret", "e2e_k3_ndcg", "e2e_k5_ndcg", "e2e_k3_ft"))]
     best_key = max(main_keys, key=lambda k: results[k]["best_val_return"])
     champion = {"config": results[best_key]["experiment"], "seed": results[best_key]["seed"],
                 "K": results[best_key]["K"], "sharpe": results[best_key]["sharpe"],
