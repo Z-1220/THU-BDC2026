@@ -115,11 +115,14 @@ def extract_groups(df, start, end, sector_map):
 
 
 def compute_context_features(df, signal_date, instruments, base_scores, sector_map, lookback=60):
-    hist = df[df["日期"] <= signal_date]
-    n = len(instruments)
+    # Normalize stock codes to zero-padded strings (fixes int/str mismatches).
+    df2 = df.assign(code_s=df["股票代码"].astype(str).str.zfill(6))
+    hist = df2[df2["日期"] <= signal_date]
+    instruments_n = [str(c).zfill(6) for c in instruments]
+    n = len(instruments_n)
 
     # Market features
-    daily_close = hist.pivot_table(values="收盘", index="日期", columns="股票代码", aggfunc="last")
+    daily_close = hist.pivot_table(values="收盘", index="日期", columns="code_s", aggfunc="last")
     daily_ret = daily_close.pct_change().mean(axis=1).dropna()
     if len(daily_ret) >= 20:
         mm5, mm20, mv20 = float(daily_ret.tail(5).mean()), float(daily_ret.tail(20).mean()), float(daily_ret.tail(20).std())
@@ -127,14 +130,14 @@ def compute_context_features(df, signal_date, instruments, base_scores, sector_m
         mm5 = mm20 = mv20 = 0.0
 
     rets_5d = []
-    for code in instruments:
-        d = hist[hist["股票代码"] == code].sort_values("日期")
+    for code in instruments_n:
+        d = hist[hist["code_s"] == code].sort_values("日期")
         rets_5d.append(float(d["收盘"].iloc[-1] / d["收盘"].iloc[-6] - 1) if len(d) >= 6 else 0.0)
     rets_5d = np.array(rets_5d)
     market_features = np.array([mm5, mm20, mv20, float(np.mean(rets_5d > 0)), float(np.std(rets_5d))], dtype=np.float32)
 
     # Sector
-    sectors = [sector_map.get(c, "unknown") for c in instruments]
+    sectors = [sector_map.get(c, "unknown") for c in instruments_n]
     sec_rets = {}
     for i, code in enumerate(instruments):
         sec_rets.setdefault(sectors[i], []).append(rets_5d[i])
@@ -142,7 +145,7 @@ def compute_context_features(df, signal_date, instruments, base_scores, sector_m
     sector_mom_5 = np.array([sec_mom.get(s, 0.0) for s in sectors], dtype=np.float32)
 
     # CS
-    scores_arr = np.array([base_scores.get(inst, 0.0) for inst in instruments], dtype=np.float32)
+    scores_arr = np.array([base_scores.get(inst, 0.0) for inst in instruments_n], dtype=np.float32)
     from scipy.stats import rankdata
     ranks = rankdata(scores_arr, method="average")
     cs_rank = (ranks / (n + 1)).astype(np.float32)
@@ -152,8 +155,8 @@ def compute_context_features(df, signal_date, instruments, base_scores, sector_m
     # Liquidity
     al = np.zeros(n, dtype=np.float32)
     tl = np.zeros(n, dtype=np.float32)
-    for i, code in enumerate(instruments):
-        d = hist[hist["股票代码"] == code].sort_values("日期")
+    for i, code in enumerate(instruments_n):
+        d = hist[hist["code_s"] == code].sort_values("日期")
         avg_a = float(d["成交额"].tail(lookback).mean()) if len(d) >= lookback else (float(d["成交额"].mean()) if len(d) > 0 else 0)
         avg_v = float(d["成交量"].tail(lookback).mean()) if len(d) >= lookback else (float(d["成交量"].mean()) if len(d) > 0 else 0)
         al[i] = np.log1p(avg_a) if avg_a > 0 else 0

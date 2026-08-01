@@ -62,27 +62,41 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def rev20_of(df: pd.DataFrame, code: str, signal_date: pd.Timestamp) -> float:
-    hist = df[(df["code"] == code) & (df["日期"] <= signal_date)].sort_values("日期")
-    c = hist["收盘"].to_numpy()
-    if len(c) < 21:
+def build_rev20_cache(df: pd.DataFrame) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Per-code (dates, closes) arrays for O(1) rev20 lookup."""
+    cache = {}
+    for code, grp in df.groupby("code"):
+        g = grp.sort_values("日期")
+        cache[str(code)] = (g["日期"].to_numpy(), g["收盘"].to_numpy())
+    return cache
+
+
+def rev20_of(cache: dict, code: str, signal_date: pd.Timestamp) -> float:
+    item = cache.get(code)
+    if item is None:
         return 0.0
-    v = c[-1] / c[-21] - 1
+    dates, closes = item
+    i = int(np.searchsorted(dates, np.datetime64(signal_date), side="right")) - 1
+    if i < 20:
+        return 0.0
+    v = closes[i] / closes[i - 20] - 1
     return float(v) if np.isfinite(v) else 0.0
 
 
 def build_features(groups: list[dict], df: pd.DataFrame, sector_map: dict) -> list[dict]:
+    """Fast research features (semantically identical to the production
+    ContextFeatureExtractor) + rev20 (code zfill fixed)."""
+    rev_cache = build_rev20_cache(df)
     out = []
     for g in groups:
         ctx = compute_context_features(
             df, g["date"], g["instruments"],
             dict(zip(g["instruments"], g["scores"])), sector_map,
         )
-        sf = ctx["stock_features"]
         rev = np.array(
-            [[rev20_of(df, c, g["date"])] for c in g["instruments"]], dtype=np.float32
+            [[rev20_of(rev_cache, c, g["date"])] for c in g["instruments"]], dtype=np.float32
         )
-        sf7 = np.concatenate([sf, rev], axis=1)
+        sf7 = np.concatenate([ctx["stock_features"], rev], axis=1)
         out.append({"stock_features": sf7, "market_features": ctx["market_features"]})
     return out
 

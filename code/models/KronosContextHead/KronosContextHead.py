@@ -28,7 +28,6 @@ from qlib.log import get_module_logger
 from qlib.model.base import Model
 
 from ..Kronos.KronosModel import KronosModel
-from ..KronosContext.ContextFeatures import ContextFeatureExtractor
 from ..KronosContext.KronosContext import ContextTransformer
 
 
@@ -89,7 +88,18 @@ class KronosContextHeadModel(Model):
             seed=seed,
             cs_zscore=False,
         )
-        self.extractor = ContextFeatureExtractor()
+        # Raw price data + sector map for the shared feature builder
+        # (identical to scripts/train_context_head_d.py build_features).
+        self._df_raw = pd.read_csv(
+            Path(__file__).resolve().parent.parent.parent.parent / "data" / "stock_data.csv",
+            encoding="utf-8-sig", parse_dates=["日期"],
+        )
+        _sector_csv = (
+            Path(__file__).resolve().parent.parent.parent.parent / "resource" / "行业分类.csv"
+        )
+        _sdf = pd.read_csv(_sector_csv, encoding="utf-8-sig", dtype={"证券代码": str})
+        self._sector_map = dict(zip(_sdf["证券代码"], _sdf["中证一级行业分类简称"]))
+        self._rev_cache = self._build_rev_cache()
 
         def _new_head() -> ContextTransformer:
             return ContextTransformer(
@@ -176,37 +186,48 @@ class KronosContextHeadModel(Model):
         result.name = "score"
         return result
 
+    def _build_rev_cache(self) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+        df2 = self._df_raw.assign(code_s=self._df_raw["股票代码"].astype(str).str.zfill(6))
+        cache = {}
+        for code, grp in df2.groupby("code_s"):
+            g = grp.sort_values("日期")
+            cache[str(code)] = (g["日期"].to_numpy(), g["收盘"].to_numpy())
+        return cache
+
+    def _rev20(self, code: str, signal_date: pd.Timestamp) -> float:
+        item = self._rev_cache.get(code)
+        if item is None:
+            return 0.0
+        dates, closes = item
+        i = int(np.searchsorted(dates, np.datetime64(signal_date), side="right")) - 1
+        if i < 20:
+            return 0.0
+        v = closes[i] / closes[i - 20] - 1
+        return float(v) if np.isfinite(v) else 0.0
+
     def _build_features(
         self,
         signal_date: pd.Timestamp,
         instruments: list[str],
         raw_scores: pd.Series,
     ) -> tuple[np.ndarray, np.ndarray]:
-        feat_df = self.extractor.extract(signal_date, instruments, raw_scores)
-        scores = np.array(
-            [[raw_scores.get(inst, 0.0)] for inst in instruments], dtype=np.float32
+        try:
+            from src.run_research_experiments import compute_context_features
+        except ImportError:
+            from code.src.run_research_experiments import compute_context_features
+
+        codes = [c[2:] if c.startswith(("SH", "SZ")) else c for c in instruments]
+        base = {c: float(v) for c, v in zip(codes, raw_scores.values)}
+        ctx = compute_context_features(self._df_raw, signal_date, codes, base, self._sector_map)
+        sf = ctx["stock_features"]
+        rev = np.array(
+            [[self._rev20(c, signal_date)] for c in codes], dtype=np.float32
         )
-        extra = feat_df[_STOCK_COLS].values.astype(np.float32)
-        rev20 = np.array(
-            [[self._rev20(instrument, signal_date)] for instrument in instruments],
-            dtype=np.float32,
-        )
-        stock_f = np.concatenate([scores, extra, rev20], axis=1)
-        market_f = feat_df[_MARKET_COLS].iloc[0].values.astype(np.float32)
+        stock_f = np.concatenate([sf, rev], axis=1)
         return (
             np.nan_to_num(stock_f, nan=0.0, posinf=0.0, neginf=0.0),
-            np.nan_to_num(market_f, nan=0.0, posinf=0.0, neginf=0.0),
+            np.nan_to_num(ctx["market_features"], nan=0.0, posinf=0.0, neginf=0.0),
         )
-
-    def _rev20(self, instrument: str, signal_date: pd.Timestamp) -> float:
-        code = instrument[2:] if instrument.startswith(("SH", "SZ")) else instrument
-        d = self.extractor._df
-        hist = d[(d["code"] == code) & (d["日期"] <= signal_date)].sort_values("日期")
-        c = hist["close"].to_numpy()
-        if len(c) < 21:
-            return 0.0
-        v = c[-1] / c[-21] - 1
-        return float(v) if np.isfinite(v) else 0.0
 
     def eval(self) -> "KronosContextHeadModel":
         self._net.eval()

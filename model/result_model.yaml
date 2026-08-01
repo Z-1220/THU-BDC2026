@@ -1,9 +1,10 @@
-# Champion config — 3-seed ensemble learned ranking head (2026-08-01, B-round)
-# ML-driven selection: fine-tuned Kronos scores + NDCG Context Transformer heads
-# (9 features: score, sector momentum, CS rank/z-score, liquidity, 20d reversal,
-# 20d vol, 20d drawdown + market context). Refined scores averaged over 3 seeds.
-# Hard risk screens (ScreenProcessor) remain as constraints; the heads learn
-# soft risk screening from vol20/dd20. Final portfolio = model Top-3 equal.
+# Champion config — aggressive single-head Top-2 (2026-08-01, B-round)
+# User directive: pursue excess return, no ensemble dilution.
+# Best single learned ranking head (seed2024, corrected shared features,
+# NDCG Context Transformer, 7 features) -> Top-2 equal weight (50/50).
+# 10-week OOS: weekly excess +5.26%, cum +81.7%, worst week -5.3%
+# (top2_equal variant; see docs/aggressive_variants_20260801.md).
+# ML-driven selection; only risk screens (ScreenProcessor) as constraints.
 
 qlib_init:
   provider_uri: "./temp/qlib_data"
@@ -29,9 +30,7 @@ task:
       dim_feedforward: 64
       dropout: 0.1
       head_weights:
-        - "./model/context_head/head_s42.pt"
         - "./model/context_head/head_s2024.pt"
-        - "./model/context_head/head_s7.pt"
 
   dataset:
     class: DatasetH
@@ -71,4 +70,4 @@ task:
     universe: "all"
     data_end: "2026-07-31"
     exposure_mode: "rank_weighted"
-    rank_weights: [0.333, 0.333, 0.334]
+    rank_weights: [0.5, 0.5]
