@@ -347,3 +347,5 @@ model/config_snapshot.yaml
 temp/kronos_scores_cache*.pkl
 # CardNN end-to-end trained weights
 model/cardnn/
+# Learned ranking head weights (Plan D)
+model/context_head/

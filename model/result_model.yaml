@@ -1,9 +1,10 @@
-# Champion config — Plan D regime strategy (2026-08-01, B-round 08-03~08-07)
-# State (2026-07-31): old-economy rotation (tech weak, consumer/banks/RE strong,
-# leader flips weekly). Selected strategy: blend_rev05 — Kronos score z + 0.5 *
-# (20d reversal z), IT excluded, MA60-filtered, Top-3 equal weight.
-# Evidence: state-conditioned 41-week stats (+0.41%/wk excess, 54% win);
-# see docs/d1_state_conditioned_*.md, docs/d2d3_fusion_*.md.
+# Champion config — learned Context Transformer ranking head (2026-08-01, B-round)
+# ML-driven selection: fine-tuned Kronos scores + learned NDCG ranking head
+# (features: score, sector momentum, CS rank/z-score, liquidity, 20d reversal,
+# market context). Final portfolio = model Top-3 equal weight; only risk
+# screens (ScreenProcessor) remain as constraints. No hand-crafted selection.
+# Trained by scripts/train_context_head_d.py (seed 42 champion, 10-week
+# out-of-sample: weekly excess +3.78%, win 70%).
 
 qlib_init:
   provider_uri: "./temp/qlib_data"
@@ -11,8 +12,8 @@ qlib_init:
 
 task:
   model:
-    class: KronosModel
-    module_path: "code.models.Kronos.KronosModel"
+    class: KronosContextHeadModel
+    module_path: "code.models.KronosContextHead.KronosContextHead"
     kwargs:
       model_name: "small"
       pretrained_dir: "./model/kronos_pretrained"
@@ -23,7 +24,12 @@ task:
       top_p: 0.9
       sample_count: 1
       seed: 42
-      cs_zscore: false
+      d_model: 32
+      nhead: 4
+      num_layers: 2
+      dim_feedforward: 64
+      dropout: 0.1
+      head_weights: "./model/context_head/kronos_context_head_champion.pt"
 
   dataset:
     class: DatasetH
@@ -55,11 +61,12 @@ task:
             - class: DropnaLabel
               module_path: "qlib.data.dataset.processor"
       segments:
-        train: ["2024-01-01", "2025-12-31"]
-        valid: ["2026-01-05", "2026-01-30"]
+        train: ["2024-01-01", "2026-04-17"]
+        valid: ["2026-04-24", "2026-05-08"]
         test:  ["2026-05-15", "2026-07-31"]
 
   evaluation:
     universe: "all"
     data_end: "2026-07-31"
-    exposure_mode: "blend_rev05"
+    exposure_mode: "rank_weighted"
+    rank_weights: [0.333, 0.333, 0.334]
