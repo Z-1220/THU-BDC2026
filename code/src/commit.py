@@ -60,7 +60,7 @@ def init_qlib(cfg: dict[str, Any]) -> None:
     qlib_init = cfg.get("qlib_init", {})
     if not qlib_init:
         qlib_init = {
-            "provider_uri": str(PROJECT_ROOT / "temp" / "qlib_data"),
+            "provider_uri": str(PROJECT_ROOT / "model" / "qlib_data"),
             "region": "cn",
         }
     qlib.init(**qlib_init)
@@ -161,7 +161,7 @@ def build_blend_rev05_weights(
         sector_map = dict(zip(sdf["证券代码"], sdf["中证一级行业分类简称"]))
 
     stock_df = pd.read_csv(
-        PROJECT_ROOT / "data" / "stock_data.csv",
+        PROJECT_ROOT / "model" / "data" / "stock_data.csv",
         encoding="utf-8-sig", parse_dates=["日期"], dtype={"股票代码": str},
     )
     stock_df["code"] = stock_df["股票代码"].str.zfill(6)
@@ -211,7 +211,7 @@ def build_blend_rev05_weights(
 def classify_market_state(signal_date: str) -> str:
     """Classify 科技/老经济 x 趋势/轮动 (same logic as compute_auto_k.py)."""
     stock_df = pd.read_csv(
-        PROJECT_ROOT / "data" / "stock_data.csv",
+        PROJECT_ROOT / "model" / "data" / "stock_data.csv",
         encoding="utf-8-sig", parse_dates=["日期"], dtype={"股票代码": str},
     )
     stock_df["code"] = stock_df["股票代码"].str.zfill(6)
@@ -270,7 +270,7 @@ def main() -> None:
     init_qlib(cfg)
 
     # 4. 推断测试日期
-    train_csv = PROJECT_ROOT / "data" / "train.csv"
+    train_csv = PROJECT_ROOT / "model" / "data" / "train.csv"
     if not train_csv.exists():
         raise FileNotFoundError(f"训练数据缺失: {train_csv}")
     test_date = infer_test_date(train_csv)

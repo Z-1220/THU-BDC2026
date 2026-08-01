@@ -349,3 +349,5 @@ temp/kronos_scores_cache*.pkl
 model/cardnn/
 # Learned ranking head weights (Plan D)
 model/context_head/
+model/data/
+model/qlib_data/

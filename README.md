@@ -12,11 +12,12 @@
 
 - 使用 **Baostock 公开行情数据**（http://baostock.com），沪深 300 成分股日线 OHLCV（后复权 adjustflag="1"），
   时间范围 2022-01-04 ~ 2026-07-31
-- 获取方式：`uv run python scripts/get_stock_data.py`（通过 START_DATE/END_DATE 环境变量控制区间）
+- 获取方式：`uv run python scripts/get_stock_data.py`（通过 START_DATE/END_DATE 环境变量控制区间），输出至 `model/data/stock_data.csv`
 - 在训练（微调 Kronos + 学习排序头）时使用；辅助数据：`resource/行业分类.csv`（中证四级行业编码）、
   `data/hs300_index.csv`（市场状态诊断）
-- 数据切分：`data/train.csv`（训练，排除盲测区间 2026-04-13 ~ 04-17）、`data/test.csv`（主办方盲测集，不可修改）、
-  `temp/qlib_data/`（Qlib 二进制缓存，`sh init.sh` 生成）
+- 数据切分：`model/data/train.csv`（训练，排除盲测区间 2026-04-13 ~ 04-17）、`data/test.csv`（主办方盲测集，仅本地自评用，不可修改）、
+  `model/qlib_data/`（Qlib 二进制缓存，`sh init.sh` 生成）
+- **挂载规则**：最终验证时赛事方会挂载并覆盖 `data/`、`temp/`、`output/`；自有数据全部打包在非挂载目录 `model/data/` 下，运行时不依赖挂载内容
 
 ## 预训练模型
 
@@ -93,7 +94,7 @@
 4. 保存产物：`model/result_model.pth`（排序头权重）+ `model/config_snapshot.yaml`（配置快照）。
 
 前置步骤（一次性）：
-- `sh init.sh`：`train.csv` + 行业分类 → Qlib 二进制（`temp/qlib_data`）
+- `sh init.sh`：`model/data/train.csv` + 行业分类 → Qlib 二进制（`model/qlib_data`）
 - `uv run python scripts/finetune_kronos.py`：微调 Kronos Predictor（2024-01~2025-12）
 - `uv run python scripts/train_context_head_d.py`：训练学习排序头（3 seeds，保存 head_s*.pt）
 
@@ -102,7 +103,7 @@
 `sh test.sh`（等价 `uv run code/src/commit.py`），逐步说明：
 
 1. `set_seed(42)`，加载 `model/result_model.yaml`。
-2. 初始化 Qlib；从 `data/train.csv` 推断测试日期（最新交易日）。
+2. 初始化 Qlib（`model/qlib_data`）；从 `model/data/train.csv` 推断测试日期（最新交易日）。
 3. `build_model`：构造模型并加载 `model/result_model.pth`（排序头权重，`_net` 注入）。
 4. `build_test_dataset`：单日测试集（FridayFilter → Fillna → ScreenProcessor 筛选）。
 5. `model.predict`：Kronos 打分 → 上下文特征 → 排序头精排 → 每股分数。
@@ -116,7 +117,7 @@
   验证 2026-04-24 ~ 05-08、测试最近 10 周 2026-05-15 ~ 07-24；研究窗口细节见 `docs/`。
 - `data/test.csv`（2026-04-13 ~ 04-17）为主办方盲测集，**不可修改、不可训练**。
 - 硬性约束：推理 ≤ 5 分钟、训练 ≤ 8 小时、Docker 镜像 ≤ 10GB、全程离线。
-- 权重/数据不入 git（`.gitignore`：model/kronos_*、model/context_head、temp/、data/*.csv）；
-  Docker 镜像内 `data/` 由 docker-compose 挂载，`model/` 权重随镜像打包。
+- 权重/数据不入 git（`.gitignore`：model/kronos_*、model/context_head、model/data/、model/qlib_data/）；
+  Docker 镜像内 `data/` 由赛事方挂载（最终验证会覆盖），自有数据在 `model/data/`、权重在 `model/` 随镜像打包。
 - 预训练模型已按 7/18 要求报备（开源链接 + md5，见 `报备邮件.txt` 模板）。
 - 可复现性：固定 seed=42，两次 `sh test.sh` 输出一致（已实测验证）。

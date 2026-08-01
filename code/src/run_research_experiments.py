@@ -47,7 +47,7 @@ from models.KronosRankHead.RankingLosses import (
 
 def load_price_data() -> pd.DataFrame:
     project_root = Path(__file__).resolve().parent.parent.parent
-    return pd.read_csv(project_root / "data" / "stock_data.csv",
+    return pd.read_csv(project_root / "model" / "data" / "stock_data.csv",
                        encoding="utf-8-sig", parse_dates=["日期"])
 
 

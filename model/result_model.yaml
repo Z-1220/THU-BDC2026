@@ -7,7 +7,7 @@
 # ML-driven selection; only risk screens (ScreenProcessor) as constraints.
 
 qlib_init:
-  provider_uri: "./temp/qlib_data"
+  provider_uri: "./model/qlib_data"
   region: cn
 
 task:

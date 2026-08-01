@@ -206,7 +206,7 @@ def finetune(args: argparse.Namespace) -> None:
     print(f"Tokenizer params: {n_params:,}")
 
     # ---- Data ----
-    csv_path = _PROJECT_ROOT / "data" / "stock_data.csv"
+    csv_path = _PROJECT_ROOT / "model" / "data" / "stock_data.csv"
     train_ds = KlineFinetuneDataset(str(csv_path), split="train", lookback=args.lookback)
     val_ds = KlineFinetuneDataset(str(csv_path), split="val", lookback=args.lookback)
     print(f"Train samples: {len(train_ds):,}  |  Val samples: {len(val_ds):,}")

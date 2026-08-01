@@ -22,13 +22,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input",
         type=str,
-        default=str(PROJECT_ROOT / "data" / "stock_data.csv"),
+        default=str(PROJECT_ROOT / "model" / "data" / "stock_data.csv"),
         help="原始 stock_data.csv 路径",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default=str(PROJECT_ROOT / "data" / "train.csv"),
+        default=str(PROJECT_ROOT / "model" / "data" / "train.csv"),
         help="输出 train.csv 路径",
     )
     parser.add_argument(

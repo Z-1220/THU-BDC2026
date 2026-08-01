@@ -40,7 +40,7 @@ def zscore(s: pd.Series) -> pd.Series:
 
 
 def main() -> None:
-    df = pd.read_csv(PROJECT_ROOT / "data" / "stock_data.csv",
+    df = pd.read_csv(PROJECT_ROOT / "model" / "data" / "stock_data.csv",
                      encoding="utf-8-sig", parse_dates=["日期"], dtype={"股票代码": str})
     df["code"] = df["股票代码"].str.zfill(6)
     sector_map = load_sector_map()

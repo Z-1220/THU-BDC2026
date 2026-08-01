@@ -54,7 +54,7 @@ def main() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print("Initializing Qlib...")
-    qlib_init(provider_uri="./temp/qlib_data", region="cn")
+    qlib_init(provider_uri="./model/qlib_data", region="cn")
 
     print("Building Kronos model...")
     from models.Kronos.KronosModel import KronosModel

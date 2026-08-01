@@ -193,12 +193,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--csv",
-        default=str(PROJECT_ROOT / "data" / "train.csv"),
+        default=str(PROJECT_ROOT / "model" / "data" / "train.csv"),
         help="行情 CSV 路径",
     )
     parser.add_argument(
         "--qlib_dir",
-        default=str(PROJECT_ROOT / "temp" / "qlib_data"),
+        default=str(PROJECT_ROOT / "model" / "qlib_data"),
         help="Qlib 数据输出目录",
     )
     parser.add_argument(

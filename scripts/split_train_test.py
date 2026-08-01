@@ -11,7 +11,7 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument(
 		"--input",
 		type=str,
-		default="../data/stock_data.csv",
+		default="../model/data/stock_data.csv",
 		help="原始数据文件路径，默认 data/stock_data.csv",
 	)
 	parser.add_argument(

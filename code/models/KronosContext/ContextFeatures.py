@@ -32,7 +32,7 @@ _COL_MAP = {
 
 def load_stock_data() -> pd.DataFrame:
     """Load stock_data.csv with standardized column names."""
-    csv_path = _PROJECT_ROOT / "data" / "stock_data.csv"
+    csv_path = _PROJECT_ROOT / "model" / "data" / "stock_data.csv"
     df = pd.read_csv(csv_path, encoding="utf-8-sig", parse_dates=["日期"])
     df = df.rename(columns={**{k: v for k, v in _COL_MAP.items()}, "股票代码": "code"})
     df["code"] = df["code"].astype(str)

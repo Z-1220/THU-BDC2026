@@ -155,7 +155,7 @@ class KronosModel(Model):
 
     @staticmethod
     def _load_ohlcv_data() -> pd.DataFrame:
-        csv_path = _PROJECT_ROOT / "data" / "stock_data.csv"
+        csv_path = _PROJECT_ROOT / "model" / "data" / "stock_data.csv"
         if not csv_path.exists():
             raise FileNotFoundError(f"stock_data.csv not found at {csv_path}")
         df = pd.read_csv(csv_path, encoding="utf-8-sig", parse_dates=["日期"])

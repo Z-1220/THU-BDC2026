@@ -47,7 +47,7 @@ def main() -> None:
     # 初始化 Qlib
     import qlib
     provider_uri = cfg.get("qlib_init", {}).get(
-        "provider_uri", str(PROJECT_ROOT / "temp" / "qlib_data")
+        "provider_uri", str(PROJECT_ROOT / "model" / "qlib_data")
     )
     qlib.init(provider_uri=provider_uri, region="cn")
 

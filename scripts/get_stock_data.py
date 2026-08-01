@@ -332,7 +332,7 @@ def merge_stock_data(existing_df, new_df, stock_code):
 
 
 def main():
-    save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+    save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model", "data")
     os.makedirs(save_dir, exist_ok=True)
 
     start_date = os.environ.get("START_DATE", "2022-01-01")

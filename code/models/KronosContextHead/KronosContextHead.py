@@ -91,7 +91,7 @@ class KronosContextHeadModel(Model):
         # Raw price data + sector map for the shared feature builder
         # (identical to scripts/train_context_head_d.py build_features).
         self._df_raw = pd.read_csv(
-            Path(__file__).resolve().parent.parent.parent.parent / "data" / "stock_data.csv",
+            Path(__file__).resolve().parent.parent.parent.parent / "model" / "data" / "stock_data.csv",
             encoding="utf-8-sig", parse_dates=["日期"],
         )
         _sector_csv = (

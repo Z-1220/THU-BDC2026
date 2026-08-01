@@ -46,7 +46,7 @@ uv run python scripts/update_train_data.py
 
 ### 步骤 4：重建 Qlib 二进制缓存
 
-旧 `temp/qlib_data/` 为 Docker root 权限，需通过 Docker 重建：
+旧 `model/qlib_data/` 为 Docker root 权限，需通过 Docker 重建：
 
 ```bash
 docker compose run --rm --entrypoint "" app uv run scripts/convert_data.py
@@ -67,9 +67,9 @@ sh scripts/update_data.sh
 ## 更新后的数据概览
 
 此命令运行后：
-- `data/stock_data.csv`：原始 Baostock 全量数据
-- `data/train.csv`：训练用数据（排除盲测区间 2026-04-13 ~ 2026-04-17）
-- `temp/qlib_data/`：Qlib 二进制缓存（需配合 Docker 重建）
+- `model/data/stock_data.csv`：原始 Baostock 全量数据
+- `model/data/train.csv`：训练用数据（排除盲测区间 2026-04-13 ~ 2026-04-17）
+- `model/qlib_data/`：Qlib 二进制缓存（需配合 Docker 重建）
 
 ## 后续操作建议
 
