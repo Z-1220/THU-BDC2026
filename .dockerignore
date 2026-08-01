@@ -75,3 +75,13 @@ mlruns/
 
 # ---- 不需要的图形资源 ----
 asset/
+test/
+# ---- 与复现本身无关的内容（镜像最小化） ----
+AGENTS.md
+报备邮件.txt
+model/*.yaml
+!model/result_model.yaml
+model/result_model.pth
+model/config_snapshot.yaml
+scripts/*
+!scripts/convert_data.py
