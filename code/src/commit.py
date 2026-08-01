@@ -147,6 +147,66 @@ def optimize_portfolio(scores: pd.Series, config: dict[str, Any]) -> dict[str, f
     return {c: float(w) for c in top.index}
 
 
+def build_blend_rev05_weights(
+    scores: pd.Series, signal_date: str
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Plan D regime strategy for the 'old-economy rotation' state:
+    exclude IT, require close > MA60 (already screened), blend Kronos score
+    z-score with 0.5 * (-20d return z-score), take Top-3 equal weight."""
+    sector_map: dict[str, str] = {}
+    sector_csv = PROJECT_ROOT / "resource" / "行业分类.csv"
+    if sector_csv.exists():
+        sdf = pd.read_csv(sector_csv, encoding="utf-8-sig", dtype={"证券代码": str})
+        sector_map = dict(zip(sdf["证券代码"], sdf["中证一级行业分类简称"]))
+
+    stock_df = pd.read_csv(
+        PROJECT_ROOT / "data" / "stock_data.csv",
+        encoding="utf-8-sig", parse_dates=["日期"], dtype={"股票代码": str},
+    )
+    stock_df["code"] = stock_df["股票代码"].str.zfill(6)
+    closes = stock_df.pivot_table(index="日期", columns="code", values="收盘", aggfunc="last").sort_index()
+    dt = pd.Timestamp(signal_date)
+    if dt not in closes.index:
+        prior = closes.index[closes.index <= dt]
+        if len(prior) == 0:
+            raise ValueError(f"signal date {dt.date()} before data start")
+        dt = prior[-1]
+    pos = closes.index.get_loc(dt)
+    if pos < 20:
+        raise ValueError(f"insufficient history for 20d return at {dt.date()}")
+    ret20 = closes.iloc[pos] / closes.iloc[pos - 20] - 1
+
+    scores_map = {
+        c[2:] if c.startswith(("SH", "SZ")) else c: float(v)
+        for c, v in scores.items()
+    }
+    ma60_daily = closes.rolling(60).mean()
+    cands = [
+        c for c in scores_map
+        if sector_map.get(c, "") != "信息技术"
+        and c in ret20.index and np.isfinite(ret20[c])
+        and c in ma60_daily.columns and np.isfinite(ma60_daily.loc[dt, c])
+        and closes.loc[dt, c] > ma60_daily.loc[dt, c]
+    ]
+    sc = pd.Series({c: scores_map[c] for c in cands})
+    rv = pd.Series({c: ret20[c] for c in cands})
+
+    def z(s: pd.Series) -> pd.Series:
+        sd = s.std()
+        return (s - s.mean()) / sd if sd > 1e-9 else s * 0.0
+
+    blend = z(sc) + 0.5 * z(-rv)
+    top = blend.sort_values(ascending=False).head(3)
+    w = 1.0 / 3
+    weights = {c: float(w) for c in top.index}
+    diag = {
+        "strategy": "blend_rev05",
+        "n_candidates": len(cands),
+        "picks": list(top.index),
+    }
+    return weights, diag
+
+
 def save_result(weights: dict[str, float], output_path: Path) -> None:
     """保存 result.csv（stock_id 为 6 位数字字符串）。"""
     result = []
@@ -196,6 +256,12 @@ def main() -> None:
         print(
             f"[test] CardNN 端到端配权: {len(weights)} 只股票, "
             f"投入比例 {diag.get('invested_frac', 0.0):.3f}, 现金位 {diag.get('cash_positions', 0.0)}"
+        )
+    elif eval_cfg.get("exposure_mode") == "blend_rev05":
+        weights, diag = build_blend_rev05_weights(scores, test_date)
+        print(
+            f"[test] Plan D blend_rev05 配权: {len(weights)} 只股票, "
+            f"候选 {diag.get('n_candidates')}, 标的 {diag.get('picks')}"
         )
     else:
         weights = optimize_portfolio(scores, cfg)

@@ -1,8 +1,9 @@
-# Champion config — CardNN end-to-end (2026-08-01, B-round)
-# End-to-end: fine-tuned Kronos scores -> Context Transformer (cross-stock
-# interactions + market env) -> CardNN Gumbel-Sinkhorn Top-K allocation
-# (<= K stocks, weight sum <= 1, cash asset). Head trained by
-# scripts/train_cardnn_e2e.py; see docs/cardnn_e2e_report_*.md.
+# Champion config — Plan D regime strategy (2026-08-01, B-round 08-03~08-07)
+# State (2026-07-31): old-economy rotation (tech weak, consumer/banks/RE strong,
+# leader flips weekly). Selected strategy: blend_rev05 — Kronos score z + 0.5 *
+# (20d reversal z), IT excluded, MA60-filtered, Top-3 equal weight.
+# Evidence: state-conditioned 41-week stats (+0.41%/wk excess, 54% win);
+# see docs/d1_state_conditioned_*.md, docs/d2d3_fusion_*.md.
 
 qlib_init:
   provider_uri: "./temp/qlib_data"
@@ -10,8 +11,8 @@ qlib_init:
 
 task:
   model:
-    class: KronosCardNNModel
-    module_path: "code.models.CardNN.KronosCardNN"
+    class: KronosModel
+    module_path: "code.models.Kronos.KronosModel"
     kwargs:
       model_name: "small"
       pretrained_dir: "./model/kronos_pretrained"
@@ -22,16 +23,7 @@ task:
       top_p: 0.9
       sample_count: 1
       seed: 42
-      context_mode: "full"
-      d_model: 32
-      nhead: 4
-      num_layers: 2
-      dim_feedforward: 64
-      dropout: 0.1
-      K: 3
-      cardnn_tau: 1.0
-      cardnn_n_iter: 30
-      cardnn_weights: "./model/cardnn/kronos_cardnn_champion.pt"
+      cs_zscore: false
 
   dataset:
     class: DatasetH
@@ -65,9 +57,9 @@ task:
       segments:
         train: ["2024-01-01", "2025-12-31"]
         valid: ["2026-01-05", "2026-01-30"]
-        test:  ["2026-02-02", "2026-07-31"]
+        test:  ["2026-05-15", "2026-07-31"]
 
   evaluation:
     universe: "all"
     data_end: "2026-07-31"
-    exposure_mode: "cardnn"
+    exposure_mode: "blend_rev05"
