@@ -4,8 +4,7 @@
 
 - Python 3.12（`.python-version` 锁定），包管理仅用 **uv**（禁止 pip/conda/poetry）
 - PyTorch 2.11.0+cu128，pyqlib 0.9.7，pandas 2.3.x，numpy 2.x
-- LightGBM 4.6.0 / CatBoost 1.2.10 / XGBoost 3.2.0（作为基线对比）
-- TA-Lib 0.6.8：C 库在 Dockerfile 中源码编译；本地需系统级安装
+- 直接依赖仅保留最终提交运行时闭包：numpy、pandas、torch、pyqlib、pyyaml、huggingface_hub、safetensors、einops、tqdm、scipy
 - 安装依赖：`uv sync`；激活环境：`source .venv/bin/activate`
 
 ## 数据

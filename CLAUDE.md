@@ -130,8 +130,8 @@ THU-BDC2026 比赛：学习沪深300成分股排序，输出 5 只股票及权�
 ## Qlib 版本与 Python 环境
 
 - `pyqlib==0.9.7`，Python 3.12，包管理**仅用 uv**（禁止 pip/conda/poetry）
-- PyTorch 2.11.0+cu128，LightGBM 4.6.0，CatBoost 1.2.10，XGBoost 3.2.0
-- TA-Lib C 库在 Dockerfile 中从源码编译；本地使用需系统级安装（见 README.md 第 196-207 行）
+- PyTorch 2.11.0+cu128；直接依赖为最终提交运行时闭包：numpy、pandas、torch、pyqlib、pyyaml、huggingface_hub、safetensors、einops、tqdm、scipy
+- 注：pyqlib 会传递安装 mlflow/lightgbm/matplotlib/joblib 等，项目代码不直接使用
 - `uv sync` 安装依赖，激活 `.venv/bin/activate`
 
 ## 数据源与数据缓存
@@ -198,9 +198,9 @@ task:
 
 | Processor | 输出特征 | 实现方式 |
 |-----------|---------|---------|
-| MomentumProcessor | MACD_SIGNAL, MACD_HIST, RSI14, KDJ_K/D/J | TA-Lib |
-| VolatilityProcessor | ATR14 | TA-Lib |
-| VolumeProcessor | OBV | TA-Lib |
+| MomentumProcessor | MACD_SIGNAL, MACD_HIST, RSI14, KDJ_K/D/J | TA-Lib（可选） |
+| VolatilityProcessor | ATR14 | TA-Lib（可选） |
+| VolumeProcessor | OBV | TA-Lib（可选） |
 | MomentumQualityProcessor | ADV_MOM_QUALITY_20 | pandas 滚动 |
 | TailRiskProcessor | ADV_DOWNSIDE_VOL_20, ADV_MAX_DD_20 | pandas 滚动 |
 | DistributionProcessor | ADV_SKEW_20, ADV_KURT_20 | pandas 滚动 |
@@ -212,7 +212,7 @@ task:
 | SectorLevelProcessor | SECTOR_MOM_5/10, VS_SECTOR_MOM, EXCESS_SECTOR_MOM, SECTOR_RANK_5, SECTOR_BREADTH_1 | 行业内 groupby |
 | FridayFilterProcessor | （仅保留周五样本） | 日期过滤 |
 
-注：前三个依赖 TA-Lib；所有 Processor 的 `fields_group` 默认为 `"feature"`，操作 Qlib 的 MultiIndex 列结构 `(fields_group, field_name)`。
+注：前三个在安装 TA-Lib 时计算对应特征，未安装则直接返回原数据（ta-lib 已从最终提交依赖中移除）；所有 Processor 的 `fields_group` 默认为 `"feature"`，操作 Qlib 的 MultiIndex 列结构 `(fields_group, field_name)`。
 
 ## 自定义 Model：PointwiseStockTransformer
 
