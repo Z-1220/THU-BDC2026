@@ -1,0 +1,64 @@
+name: build-submission-image
+
+on:
+  workflow_dispatch:
+    inputs:
+      assets_url:
+        description: "直链 URL：bdc2026_assets.tar.gz（约 579MB），如 GitHub Release 资产链接"
+        required: true
+      image_tag:
+        description: "镜像标签"
+        required: false
+        default: "bdc2026:latest"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: 释放 runner 磁盘空间
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h
+
+      - uses: actions/checkout@v4
+
+      - name: 下载运行时资产并解包到 model/
+        run: |
+          curl -fL --retry 3 -o /tmp/bdc2026_assets.tar.gz "${{ inputs.assets_url }}"
+          ls -lh /tmp/bdc2026_assets.tar.gz
+          tar -xzf /tmp/bdc2026_assets.tar.gz -C model
+          du -sh model/*
+
+      - name: 构建镜像
+        run: docker build -t "${{ inputs.image_tag }}" .
+
+      - name: 查看镜像大小
+        run: docker images "${{ inputs.image_tag }}" --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+
+      - name: 导出镜像（流式 gzip + 分片，避免磁盘峰值超限）
+        run: |
+          mkdir -p /tmp/image-parts
+          docker save "${{ inputs.image_tag }}" | gzip -c | split -b 1800m - /tmp/image-parts/result.tar.gz.part-
+          ls -lh /tmp/image-parts
+
+      - name: 上传镜像分片（公开仓库，存储免费）
+        uses: actions/upload-artifact@v4
+        with:
+          name: submission-image-parts
+          path: /tmp/image-parts/*.part-*
+          retention-days: 14
+
+      - name: 推送 GHCR 备份（公开镜像，免费）
+        if: ${{ !cancelled() }}
+        run: |
+          IMG="ghcr.io/${{ github.repository_owner }}/bdc2026:${{ github.run_id }}"
+          docker tag "${{ inputs.image_tag }}" "$IMG"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$IMG"
+          echo "pushed $IMG"
