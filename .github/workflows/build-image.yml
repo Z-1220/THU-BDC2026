@@ -57,7 +57,7 @@ jobs:
       - name: 推送 GHCR 备份（公开镜像，免费）
         if: ${{ !cancelled() }}
         run: |
-          IMG="ghcr.io/${{ github.repository_owner }}/bdc2026:${{ github.run_id }}"
+          IMG="ghcr.io/${{ github.repository_owner | lower }}/bdc2026:${{ github.run_id }}"
           docker tag "${{ inputs.image_tag }}" "$IMG"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push "$IMG"
